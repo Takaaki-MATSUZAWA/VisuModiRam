@@ -9,4 +9,5 @@ edition = "2021"
 eframe = { version = "0.23.0" }
 probe-rs = "0.21.1"
 env_logger = "0.10"
-goblin = "0.7.1"
+
+regex = {version = "1.10.2"}

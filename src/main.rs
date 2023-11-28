@@ -1,9 +1,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
-use goblin::elf::{Elf, sym::Sym};
-use goblin::Object;
-use std::fs;
+use std::path::PathBuf;
 use eframe::egui;
 //use probe_rs::{MemoryInterface, Permissions, Session};
+
+mod gdb_parser;
+use gdb_parser::{GdbParser, VariableList};
+
 
 fn main() -> Result<(), eframe::Error> {
     //let mut session = Session::auto_attach("STM32G431KBTx", Permissions::default());
@@ -27,10 +29,9 @@ struct STM32EguiMonitor {
     name: String,
     age: u32,
     elf_path: String,
-    elf_file: Vec<u8>,
     search_name: String,
-    address: Option<u64>,
-    search_results: Vec<String>,
+    variable_list: Vec<VariableList>,
+    search_results_list: Vec<VariableList>,
 }
 
 impl Default for STM32EguiMonitor {
@@ -39,10 +40,9 @@ impl Default for STM32EguiMonitor {
             name: "Arthur".to_owned(),
             age: 42,
             elf_path: Default::default(),
-            elf_file: Default::default(),
             search_name: Default::default(),
-            address: None,
-            search_results: Vec::new(),
+            variable_list: Vec::new(),
+            search_results_list: Vec::new(),
         }
     }
 }
@@ -69,30 +69,13 @@ impl eframe::App for STM32EguiMonitor {
                 ui.label("Path to ELF file:");
                 ui.text_edit_singleline(&mut self.elf_path);
                 if ui.button("Load").clicked() {
-                    self.address = None;
-                    if let Ok(buffer) = fs::read(&self.elf_path) {
-                        match Object::parse(&buffer) {
-                            Ok(Object::Elf(elf)) => {
-                                self.elf_file = buffer.to_vec();
-                                print!("file loaded")
-                                //println!("elf: {:#?}", &elf);
-                            },
-                            Ok(Object::PE(pe)) => {
-                                //println!("pe: {:#?}", &pe);
-                            },
-                            Ok(Object::Mach(mach)) => {
-                                //println!("mach: {:#?}", &mach);  
-                            },
-                            Ok(Object::Archive(archive)) => {
-                                //println!("archive: {:#?}", &archive);
-                            },
-                            Ok(Object::Unknown(magic)) => { println!("unknown magic: {:#x}", magic) },
-                            Err(_) => {
-                                print!("parse error");
-                            }
+                    if let Ok(mut gdb_parser) = GdbParser::launch(&PathBuf::from(&self.elf_path)) {
+                        if let Ok(variable_list) = gdb_parser.scan_variables() {
+                            self.variable_list = variable_list.clone();
+                            println!("file loaded");
                         }
                     }else{
-                        print!("read false");
+                        println!("failed file load");
                     }
                 }
             });
@@ -100,73 +83,31 @@ impl eframe::App for STM32EguiMonitor {
                 //.hint_text("Enter variable name...")
                 .changed()
                 {
-                    self.search_results = Vec::new();
-                    match Object::parse(&(self.elf_file)) {
-                        Ok(Object::Elf(elf)) => {
-                            //println!("elf: {:#?}", &elf);
-                            let symbols = elf.syms.to_vec();
-                            let sym_names = elf.strtab;
-                            for name in symbols{
-                                if sym_names[name.st_name].contains(&self.search_name){
-                                    self.search_results.push(format!("elf: {:#?}", &sym_names[name.st_name]));
-                                    self.search_results.push(format!("elf: {:#?}", &name));
-                                }
-                            }
-                            //println!("elf: {:#?}", &sym_names[(name.st_name)]);
-                        },
-                        Ok(Object::PE(pe)) => {
-                            //println!("pe: {:#?}", &pe);
-                        },
-                        Ok(Object::Mach(mach)) => {
-                            //println!("mach: {:#?}", &mach);
-                        },
-                        Ok(Object::Archive(archive)) => {
-                            //println!("archive: {:#?}", &archive);
-                        },
-                        Ok(Object::Unknown(magic)) => { println!("unknown magic: {:#x}", magic) },
-                        Err(_) => {
-                            print!("parse error");
-                        }
-                    }
-                }
-            if ui.button("Search").clicked() {
-                    match Object::parse(&(self.elf_file)) {
-                        Ok(Object::Elf(elf)) => {
-                            //println!("elf: {:#?}", &elf);
-                            let symbols = elf.syms.to_vec();
-                            let sym_names = elf.strtab;
-                            for name in symbols{
-                                if sym_names[name.st_name].contains(&self.search_name){
-                                    println!("elf: {:#?}", &sym_names[name.st_name]);
-                                    println!("elf: {:#?}", &name);
-                                }
-                            }
-                            //println!("elf: {:#?}", &sym_names[(name.st_name)]);
-                        },
-                        Ok(Object::PE(pe)) => {
-                            //println!("pe: {:#?}", &pe);
-                        },
-                        Ok(Object::Mach(mach)) => {
-                            //println!("mach: {:#?}", &mach);
-                        },
-                        Ok(Object::Archive(archive)) => {
-                            //println!("archive: {:#?}", &archive);
-                        },
-                        Ok(Object::Unknown(magic)) => { println!("unknown magic: {:#x}", magic) },
-                        Err(_) => {
-                            print!("parse error");
+                    self.search_results_list = Vec::new();
+
+                    for vals in &self.variable_list{
+                        if vals.name.to_lowercase().contains(&self.search_name.to_lowercase()){
+                            self.search_results_list.push(vals.clone());
                         }
                     }
                 }
 
-            for rsrt in &self.search_results {
-                ui.label(rsrt);
-            }
-            if let Some(address) = self.address {
-                ui.label(format!("Address: 0x{:x}", address));
-            } else {
-                ui.label("Address: N/A");
-            }
+                ui.separator();
+                ui.horizontal(|ui| {
+                    ui.label("Symbol");
+                    ui.label("Address");
+                    ui.label("Type");
+                });
+                for vals in &self.search_results_list {
+                    ui.horizontal(|ui| {
+                        ui.label(&vals.name);
+                        //ui.label(&format!("{:x}", &vals.address));
+                        ui.label(&vals.address);
+                        ui.label(&vals.types);
+                    });
+                }
+                ui.separator();
         });
     }
 }
+
