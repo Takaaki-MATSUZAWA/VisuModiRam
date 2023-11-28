@@ -30,6 +30,7 @@ struct STM32EguiMonitor {
     variable_list: Vec<VariableList>,
     search_results_list: Vec<VariableList>,
     gdb_parser: Option<GdbParser>,
+    elf_file_is_not_found: bool,
 
 }
 
@@ -43,6 +44,7 @@ impl Default for STM32EguiMonitor {
             variable_list: Vec::new(),
             search_results_list: Vec::new(),
             gdb_parser: None,
+            elf_file_is_not_found: false,
         }
     }
 }
@@ -67,38 +69,57 @@ impl eframe::App for STM32EguiMonitor {
             ui.horizontal(|ui| {
                 ui.label("Path to ELF file:");
                 ui.text_edit_singleline(&mut self.elf_path);
-                if ui.button("Load").clicked() {
-                    if let Ok(gdb_parser) = GdbParser::launch(&PathBuf::from(&self.elf_path)) {
-                        self.variable_list = Vec::new();
 
-                        self.gdb_parser = Some(gdb_parser);
-                        if let Some(gdb_parser) = &mut self.gdb_parser {
-                            gdb_parser.scan_variables_none_blocking_start();
-                        }
-                        /*
-                        if let Ok(variable_list) = gdb_parser.scan_variables() {
-                            self.variable_list = variable_list.clone();
-                            println!("file loaded");
-                        }
-                        */
+                if ui.button("Load").clicked() {
+                    if !std::path::Path::new(&self.elf_path).exists() {
+                        self.elf_file_is_not_found = true;
                     }else{
-                        println!("failed file load");
+                        self.elf_file_is_not_found = false;
+                        if let Ok(gdb_parser) = GdbParser::launch(&PathBuf::from(&self.elf_path)) {
+                            self.variable_list = Vec::new();
+    
+                            self.gdb_parser = Some(gdb_parser);
+                            if let Some(gdb_parser) = &mut self.gdb_parser {
+                                gdb_parser.scan_variables_none_blocking_start();
+                                println!("scan start");
+                            }
+                        }else{
+                            println!("failed file load");
+                        }
                     }
                 }
+                if self.elf_file_is_not_found{
+                    ui.label("ELF file is not found");
+                }
             });
-            
-            if let Some(gdb_parser) = &mut self.gdb_parser {
-                let _now_prgress = gdb_parser.get_scan_progress();
 
-                if _now_prgress <1.0{
-                    ui.add(egui::ProgressBar::new(gdb_parser.get_scan_progress()).text("Loading..."));
-                }else{
-                    ui.add(egui::ProgressBar::new(1.0).text("complete"));
-                    if self.variable_list.is_empty(){
+            let mut prgres_text = "";
+            let mut now_progress = 0.0;
+            let mut prgress_anime = false;
+
+            if let Some(gdb_parser) = &mut self.gdb_parser {
+                now_progress = gdb_parser.get_scan_progress();
+                prgress_anime = true;
+
+                if now_progress < 1.0 {
+                    prgres_text = "Loading...";
+                    //println!("   scaning...");
+                } else {
+                    prgres_text = "complete";
+                    prgress_anime = false;
+
+                    if self.variable_list.is_empty() {
                         self.variable_list = gdb_parser.load_variable_list();
+                        self.search_results_list = self.variable_list.clone();
                     }
                 }
             }
+            
+            ui.add(egui::ProgressBar::new(now_progress)
+                .text(prgres_text)
+                .desired_width(600.)
+                .animate(prgress_anime)
+            );
 
             if ui.text_edit_singleline(&mut self.search_name)
                 //.hint_text("Enter variable name...")

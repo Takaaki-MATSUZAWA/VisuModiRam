@@ -133,10 +133,8 @@ impl GdbParser {
         let mut _variable_list = Vec::new();
         let mut _vari_list = self.get_variable_list().unwrap();
     
-        let expanded_list = self.expand_symbol(_vari_list);
         let mut now_num_of_list = 0;
     
-        let expanded_list_len = expanded_list.len() as f64;
         let progress_clone = Arc::clone(&self.scan_prgress);
     
         let self_arc = Arc::new(Mutex::new(self.clone())); // ここを変更
@@ -144,11 +142,15 @@ impl GdbParser {
         thread::spawn(move || {
             let mut self_lock = self_arc.lock().unwrap();
     
+            let expanded_list = self_lock.expand_symbol(_vari_list);
+            let expanded_list_len = expanded_list.len() as f64;
+    
             for var in expanded_list {
                 now_num_of_list += 1;
     
                 let mut progress = progress_clone.lock().unwrap();
                 *progress = now_num_of_list as f64 /expanded_list_len ;
+                drop(progress);
                 
                 let var_type = self_lock.get_variable_types(&var).unwrap();
     
@@ -278,21 +280,20 @@ impl GdbParser {
         if output_vec_str.is_empty() {
             return Ok(Vec::new());
         }
-        let second_last_element = output_vec_str[output_vec_str.len() - 2].clone();
-        if second_last_element.contains("*") {
-            //println!("   {} is pointor !!", symbol_name);
+
+        // skip pointor
+        if output_vec_str[output_vec_str.len() - 2].contains("*"){
             return Ok(Vec::new())
         }
 
+        // skip enum
+        if output_vec_str[1].contains(" enum "){
+            return Ok(Vec::new())
+        }
+        
         let mut vari_list = self.extract_variable_names(output_vec_str.clone());
-
         if vari_list.len() == 0{
-            //vari_list.push(output_vec_str.clone());
-            //print!("{:?}", output_vec_str.clone()[1]);
-
-            let valtype = self.extract_variable_type(output_vec_str.clone());
-            //print!("  --> {:?}", valtype);
-            if let Some(valtype) = valtype {
+            if let Some(valtype) = self.extract_variable_type(output_vec_str.clone()){
                 vari_list.push(valtype);
             }
         }
