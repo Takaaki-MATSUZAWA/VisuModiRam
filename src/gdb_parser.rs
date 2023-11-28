@@ -11,6 +11,9 @@ use std::convert::From;
 use std::result;
 use std::str;
 
+use std:: thread;
+use std::sync::{Arc, Mutex};
+
 use regex::Regex;
 //use futures::prelude::*;
 
@@ -18,14 +21,15 @@ use regex::Regex;
 
 // $env:GDB_BINARY = "C:\ProgramData\chocolatey\bin\arm-none-eabi-gdb.exe"
 //use gdb;
-
+#[derive(Clone)]
 pub struct GdbParser {
-    stdin: BufWriter<process::ChildStdin>,
-    stdout: BufReader<process::ChildStdout>,
-    variable_list: Vec<VariableList>,
+    stdin: Arc<Mutex<BufWriter<process::ChildStdin>>>,
+    stdout: Arc<Mutex<BufReader<process::ChildStdout>>>,
+    variable_list: Arc<Mutex<Vec<VariableList>>>,
+    scan_prgress: Arc<Mutex<f64>>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)] // Debugを追加
 pub struct  VariableList{
     pub name :String,
     pub types:String,
@@ -78,11 +82,13 @@ impl GdbParser {
             .stderr(process::Stdio::piped())
             .spawn()?;
 
-        let mut result = GdbParser {
-            stdin: BufWriter::new(child.stdin.take().expect("broken stdin")),
-            stdout: BufReader::new(child.stdout.take().expect("broken stdout")),
-            variable_list: Vec::new(),
-        };
+            let mut result = GdbParser {
+                stdin: Arc::new(Mutex::new(BufWriter::new(child.stdin.take().expect("broken stdin")))),
+                stdout: Arc::new(Mutex::new(BufReader::new(child.stdout.take().expect("broken stdout")))),
+                variable_list: Arc::new(Mutex::new(Vec::new())),
+                scan_prgress: Arc::new(Mutex::new(0.0)),
+            };
+            
         result.read_sequence()?;
         result.set_options()?;
         Ok(result)
@@ -118,8 +124,61 @@ impl GdbParser {
         }
 
         //self.variable_list = _variable_list.clone();
-        self.variable_list = _variable_list.clone();
+        let mut variable_list_guard = self.variable_list.lock().unwrap();
+        *variable_list_guard = _variable_list.clone();
         Ok(_variable_list)
+    }
+
+    pub fn scan_variables_none_blocking_start(&mut self) -> std::thread::JoinHandle<Result<()>> {
+        let mut _variable_list = Vec::new();
+        let mut _vari_list = self.get_variable_list().unwrap();
+    
+        let expanded_list = self.expand_symbol(_vari_list);
+        let mut now_num_of_list = 0;
+    
+        let expanded_list_len = expanded_list.len() as f64;
+        let progress_clone = Arc::clone(&self.scan_prgress);
+    
+        let self_arc = Arc::new(Mutex::new(self.clone())); // ここを変更
+    
+        thread::spawn(move || {
+            let mut self_lock = self_arc.lock().unwrap();
+    
+            for var in expanded_list {
+                now_num_of_list += 1;
+    
+                let mut progress = progress_clone.lock().unwrap();
+                *progress = now_num_of_list as f64 /expanded_list_len ;
+                
+                let var_type = self_lock.get_variable_types(&var).unwrap();
+    
+                if var_type.is_empty(){
+                    continue;
+                }
+    
+                let var_address = self_lock.get_variable_address(&var).unwrap();
+                _variable_list.push(VariableList {
+                    name: var,
+                    types: var_type.get(0).cloned().unwrap_or_default(),
+                    address: var_address.unwrap_or_default(),
+                });
+            }
+            
+            // self_lock.variable_list = Arc::new(Mutex::new(_variable_list.clone()));
+            let mut variable_list_guard = self_lock.variable_list.lock().unwrap();
+            *variable_list_guard = _variable_list.clone();
+            Ok(())
+        })
+    }
+
+    pub fn load_variable_list(&mut self) -> Vec<VariableList>{
+        let variable_list_guard = self.variable_list.lock().unwrap();
+        variable_list_guard.clone()
+    }
+
+    pub fn get_scan_progress(&mut self) -> f32{
+        let progress = self.scan_prgress.lock().unwrap();
+        *progress as f32
     }
 
     pub fn expand_symbol(&mut self, vari_list: Vec<String>) ->  Vec<String>{
@@ -257,18 +316,18 @@ impl GdbParser {
 
     fn send_cmd_raw(&mut self, cmd: &str) -> Result<Vec<String>>{
         if cmd.ends_with("\n") {
-            write!(self.stdin, "{}", cmd)?;
+            write!(self.stdin.lock().unwrap(), "{}", cmd)?;
         } else {
-            writeln!(self.stdin, "{}", cmd)?;
+            writeln!(self.stdin.lock().unwrap(), "{}", cmd)?;
         }
-        self.stdin.flush()?;
+        self.stdin.lock().unwrap().flush()?;
         self.read_sequence()
     }
 
     fn read_sequence(&mut self) -> Result<Vec<String>> {
         let mut result = Vec::new();
         let mut line = String::new();
-        self.stdout.read_line(&mut line)?;
+        self.stdout.lock().unwrap().read_line(&mut line)?;
         while line != "(gdb) \n" && line != "(gdb) \r\n"{
             /*
             match parser::parse_line(line.as_str()) {
@@ -279,7 +338,7 @@ impl GdbParser {
             result.push(line.clone());
 
             line.clear();
-            let _ = self.stdout.read_line(&mut line);
+            let _ = self.stdout.lock().unwrap().read_line(&mut line);
             //print!("read_sequence : {}", &line);
             //print!("{}", &line);
         }
@@ -290,6 +349,6 @@ impl GdbParser {
 
 impl Drop for GdbParser {
     fn drop(&mut self) {
-        let _ = self.stdin.write_all(b"-gdb-exit\n");
+        let _ = self.stdin.lock().unwrap().write_all(b"-gdb-exit\n");
     }
 }
