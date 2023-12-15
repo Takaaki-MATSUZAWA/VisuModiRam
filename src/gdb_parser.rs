@@ -34,6 +34,7 @@ pub struct  VariableList{
     pub name :String,
     pub types:String,
     pub address:String,
+    pub size: usize,
 }
 
 #[derive(Debug)]
@@ -102,7 +103,7 @@ impl GdbParser {
         self.send_cmd_raw(opt2)?;
         Ok(())
     }
-
+    /*
     pub fn scan_variables(&mut self) -> Result<Vec<VariableList>> {
         let mut _variable_list = Vec::new();
         let mut _vari_list = self.get_variable_list()?;
@@ -122,12 +123,13 @@ impl GdbParser {
                 address: var_address.unwrap_or_default(),
             });
         }
-
+        
         //self.variable_list = _variable_list.clone();
         let mut variable_list_guard = self.variable_list.lock().unwrap();
         *variable_list_guard = _variable_list.clone();
         Ok(_variable_list)
     }
+    */
 
     pub fn scan_variables_none_blocking_start(&mut self) -> std::thread::JoinHandle<Result<()>> {
         let mut _variable_list = Vec::new();
@@ -157,20 +159,37 @@ impl GdbParser {
                 if var_type.is_empty(){
                     continue;
                 }
+
+                let var_size = self_lock.get_variable_size(&var).unwrap();
     
                 let var_address = self_lock.get_variable_address(&var).unwrap();
                 _variable_list.push(VariableList {
                     name: var,
                     types: var_type.get(0).cloned().unwrap_or_default(),
                     address: var_address.unwrap_or_default(),
+                    size: var_size,
                 });
             }
             
             // self_lock.variable_list = Arc::new(Mutex::new(_variable_list.clone()));
             let mut variable_list_guard = self_lock.variable_list.lock().unwrap();
             *variable_list_guard = _variable_list.clone();
+            
             Ok(())
         })
+    }
+
+    pub fn get_variable_size(&mut self, var: &String) -> Result<usize> {
+        let cmd = format!("p sizeof {}", var);
+        let output = self.send_cmd_raw(&cmd)?;
+        let size = self.extract_size(output);
+        Ok(size)
+    }
+
+    fn extract_size(&mut self, input: Vec<String>) -> usize {
+        let size_str = input[1].split("= ").last().unwrap_or_default().split("\\n").next().unwrap_or_default();
+        //println!("{} --> {}", input[1], size_str);
+        size_str.trim().parse::<usize>().unwrap_or_default()
     }
 
     pub fn load_variable_list(&mut self) -> Vec<VariableList>{
@@ -290,6 +309,11 @@ impl GdbParser {
         if output_vec_str[1].contains(" enum "){
             return Ok(Vec::new())
         }
+
+        // skip const
+        if output_vec_str[1].contains("const"){
+            return Ok(Vec::new())
+        } 
         
         let mut vari_list = self.extract_variable_names(output_vec_str.clone());
         if vari_list.len() == 0{
@@ -330,18 +354,15 @@ impl GdbParser {
         let mut line = String::new();
         self.stdout.lock().unwrap().read_line(&mut line)?;
         while line != "(gdb) \n" && line != "(gdb) \r\n"{
-            /*
-            match parser::parse_line(line.as_str()) {
-                Ok(resp) => result.push(resp),
-                Err(err) => return Err(err),
-            }
-             */
             result.push(line.clone());
+            //print!("--read_sequence--  {}", line);
+            if line == ""{
+                break;
+            }
 
             line.clear();
-            let _ = self.stdout.lock().unwrap().read_line(&mut line);
-            //print!("read_sequence : {}", &line);
-            //print!("{}", &line);
+            self.stdout.lock().unwrap().read_line(&mut line)?;
+
         }
         Ok(result)
     }

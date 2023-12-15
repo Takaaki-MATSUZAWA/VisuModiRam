@@ -9,6 +9,7 @@ edition = "2021"
 eframe = { version = "0.23.0" }
 probe-rs = "0.21.1"
 env_logger = "0.10"
-
 regex = {version = "1.10.2"}
 egui_extras = { version = "0.23.0", features = ["all_loaders"] }
+egui_plot = { version = "0.23.0" }
+shellexpand = "2.1"
