@@ -430,8 +430,9 @@ impl eframe::App for STM32EguiMonitor {
                     use std::f32::consts::{PI, TAU};
                     self.time = ctx.input(|input_state| input_state.time);
 
-                    let mut plot = Plot::new("plot_demo")
+                    let plot = Plot::new("plot_demo")
                         .legend(Legend::default())
+                        .view_aspect(1.0)
                         .y_axis_width(4);
 
                     plot.show(ui, |plot_ui| {
@@ -465,6 +466,21 @@ impl eframe::App for STM32EguiMonitor {
                             .color(Color32::from_rgb(200, 100, 100))
                             .style(LineStyle::Solid)
                             .name("wave")
+                        });
+
+                        plot_ui.line({
+                            let data: Vec<[f64; 2]> = self
+                                .my_probe
+                                .get_log_vec()
+                                .iter()
+                                .enumerate()
+                                .map(|(i, y)| [y[0], y[1]])
+                                .collect();
+
+                            Line::new(data)
+                                .color(Color32::from_rgb(200, 100, 100))
+                                .style(LineStyle::Solid)
+                                .name("wave")
                         });
                     })
                     .response
