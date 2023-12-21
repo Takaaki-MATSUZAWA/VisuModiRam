@@ -5,6 +5,7 @@ use shellexpand;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
+#[derive(Clone)]
 pub struct ProbeInterface {
     target_mcu: String,
     watch_list: Arc<Mutex<Vec<VariableList>>>,

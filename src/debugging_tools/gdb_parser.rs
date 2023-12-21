@@ -99,7 +99,7 @@ impl GdbParser {
         Ok(result)
     }
 
-    pub fn set_options(&mut self) -> Result<()> {
+    fn set_options(&mut self) -> Result<()> {
         let opt1 = "set print type methods off";
         let opt2 = "set print type typedefs off";
 
@@ -107,33 +107,6 @@ impl GdbParser {
         self.send_cmd_raw(opt2)?;
         Ok(())
     }
-    /*
-    pub fn scan_variables(&mut self) -> Result<Vec<VariableList>> {
-        let mut _variable_list = Vec::new();
-        let mut _vari_list = self.get_variable_list()?;
-
-        let expanded_list = self.expand_symbol(_vari_list);
-        for var in expanded_list {
-            let var_type = self.get_variable_types(&var)?;
-
-            if var_type.is_empty(){
-                continue;
-            }
-
-            let var_address = self.get_variable_address(&var)?;
-            _variable_list.push(VariableList {
-                name: var,
-                types: var_type.get(0).cloned().unwrap_or_default(),
-                address: var_address.unwrap_or_default(),
-            });
-        }
-
-        //self.variable_list = _variable_list.clone();
-        let mut variable_list_guard = self.variable_list.lock().unwrap();
-        *variable_list_guard = _variable_list.clone();
-        Ok(_variable_list)
-    }
-    */
 
     pub fn scan_variables_none_blocking_start(&mut self) -> std::thread::JoinHandle<Result<()>> {
         let mut _variable_list = Vec::new();
@@ -183,7 +156,7 @@ impl GdbParser {
         })
     }
 
-    pub fn get_variable_size(&mut self, var: &String) -> Result<usize> {
+    fn get_variable_size(&mut self, var: &String) -> Result<usize> {
         let cmd = format!("p sizeof {}", var);
         let output = self.send_cmd_raw(&cmd)?;
         let size = self.extract_size(output);
@@ -212,7 +185,7 @@ impl GdbParser {
         *progress as f32
     }
 
-    pub fn expand_symbol(&mut self, vari_list: Vec<String>) -> Vec<String> {
+    fn expand_symbol(&mut self, vari_list: Vec<String>) -> Vec<String> {
         let mut _new_vari_list = Vec::new();
         let mut false_cnt = 0;
 
@@ -245,7 +218,7 @@ impl GdbParser {
         _new_vari_list
     }
 
-    pub fn get_variable_list(&mut self) -> Result<Vec<String>> {
+    fn get_variable_list(&mut self) -> Result<Vec<String>> {
         let cmd = "info variables";
 
         let output_vec_str = self.send_cmd_raw(&cmd)?;
@@ -271,7 +244,7 @@ impl GdbParser {
         results.into_iter().collect()
     }
 
-    pub fn check_expanded(&mut self, symbol_name: &str) -> bool {
+    fn check_expanded(&mut self, symbol_name: &str) -> bool {
         let cmd = format!("ptype {}", symbol_name);
 
         let output_vec_str = self.send_cmd_raw(&cmd);
@@ -282,7 +255,7 @@ impl GdbParser {
     }
 
     // 変数名からアドレスを取得する
-    pub fn get_variable_address(&mut self, symbol_name: &str) -> Result<Option<String>> {
+    fn get_variable_address(&mut self, symbol_name: &str) -> Result<Option<String>> {
         let cmd = format!("print /x &({})", symbol_name);
 
         let output_vec_str = self.send_cmd_raw(&cmd)?;
@@ -304,7 +277,7 @@ impl GdbParser {
         None
     }
 
-    pub fn get_variable_types(&mut self, symbol_name: &str) -> Result<Vec<String>> {
+    fn get_variable_types(&mut self, symbol_name: &str) -> Result<Vec<String>> {
         let cmd = format!("ptype {}", symbol_name);
 
         let output_vec_str = self.send_cmd_raw(&cmd)?;
@@ -382,4 +355,27 @@ impl Drop for GdbParser {
     fn drop(&mut self) {
         let _ = self.stdin.lock().unwrap().write_all(b"-gdb-exit\n");
     }
+}
+
+pub fn search_target_mcu_name(elf_file_path: &PathBuf) -> Option<String> {
+    let project_name = elf_file_path.file_stem()?.to_str()?.to_string();
+    let mut project_dir = elf_file_path.parent();
+
+    while let Some(path) = project_dir {
+        if path.file_name()?.to_str()? == project_name {
+            break;
+        }
+        project_dir = path.parent();
+    }
+
+    let ioc_file_path = project_dir?.join(format!("{}.ioc", &project_name));
+    if ioc_file_path.is_file() {
+        let content = std::fs::read_to_string(&ioc_file_path).ok()?;
+        for line in content.lines() {
+            if line.starts_with("ProjectManager.DeviceId=") {
+                return Some(line["ProjectManager.DeviceId=".len()..].to_string());
+            }
+        }
+    }
+    None
 }
