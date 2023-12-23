@@ -25,12 +25,12 @@ use regex::Regex;
 pub struct GdbParser {
     stdin: Arc<Mutex<BufWriter<process::ChildStdin>>>,
     stdout: Arc<Mutex<BufReader<process::ChildStdout>>>,
-    variable_list: Arc<Mutex<Vec<VariableList>>>,
+    variable_list: Arc<Mutex<Vec<VariableInfo>>>,
     scan_prgress: Arc<Mutex<f64>>,
 }
 
 #[derive(Clone, Debug)] // Debugを追加
-pub struct VariableList {
+pub struct VariableInfo {
     pub name: String,
     pub types: String,
     pub address: String,
@@ -140,7 +140,7 @@ impl GdbParser {
                 let var_size = self_lock.get_variable_size(&var).unwrap();
 
                 let var_address = self_lock.get_variable_address(&var).unwrap();
-                _variable_list.push(VariableList {
+                _variable_list.push(VariableInfo {
                     name: var,
                     types: var_type.get(0).cloned().unwrap_or_default(),
                     address: var_address.unwrap_or_default(),
@@ -175,7 +175,7 @@ impl GdbParser {
         size_str.trim().parse::<usize>().unwrap_or_default()
     }
 
-    pub fn load_variable_list(&mut self) -> Vec<VariableList> {
+    pub fn load_variable_list(&mut self) -> Vec<VariableInfo> {
         let variable_list_guard = self.variable_list.lock().unwrap();
         variable_list_guard.clone()
     }

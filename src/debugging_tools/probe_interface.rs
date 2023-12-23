@@ -1,4 +1,4 @@
-use super::gdb_parser::VariableList;
+use super::gdb_parser::VariableInfo;
 use probe_rs::{MemoryInterface, Permissions, Probe, Session};
 use sensorlog::Sensorlog;
 use shellexpand;
@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 #[derive(Clone)]
 pub struct ProbeInterface {
     target_mcu: String,
-    watch_list: Arc<Mutex<Vec<VariableList>>>,
+    watch_list: Arc<Mutex<Vec<VariableInfo>>>,
     watching_flag: Arc<Mutex<bool>>,
     temp_data: Arc<Mutex<i32>>,
     log_service: Arc<Mutex<sensorlog::Sensorlog>>,

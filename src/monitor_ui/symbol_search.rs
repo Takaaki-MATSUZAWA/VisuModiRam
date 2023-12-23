@@ -2,21 +2,18 @@ use eframe::egui;
 use egui_extras::{Column, TableBuilder};
 use std::path::PathBuf;
 
-use crate::debugging_tools::{GdbParser, VariableList};
+use crate::debugging_tools::{GdbParser, VariableInfo};
 
 pub struct SymbolSearch{
     input_elf_path: String,
-    elf_path: String,
     search_name: String,
-    variable_list: Vec<VariableList>,
-    search_results_list: Vec<VariableList>,
-    pub selected_list: Vec<MainVariableList>,
+    variable_list: Vec<VariableInfo>,
+    pub selected_list: Vec<MainVariableInfo>,
     gdb_parser: Option<GdbParser>,
-    elf_file_is_not_found: bool,
     target_mcu_id: String,
 }
 
-pub struct MainVariableList {
+pub struct MainVariableInfo {
     pub name: String,
     pub types: String,
     pub address: String,
@@ -27,13 +24,10 @@ impl Default for SymbolSearch {
     fn default() -> Self {
         Self{
             input_elf_path: Default::default(),
-            elf_path: Default::default(),
             search_name: Default::default(),
             variable_list: Vec::new(),
-            search_results_list: Vec::new(),
             selected_list: Vec::new(),
             gdb_parser: None,
-            elf_file_is_not_found: false,
             target_mcu_id: Default::default(),
         }
     }
@@ -49,20 +43,18 @@ impl SymbolSearch {
         ui.horizontal(|ui| {
             ui.label("Path to ELF file:");
             ui.text_edit_singleline(&mut self.input_elf_path);
-            self.elf_path = format!("{}", shellexpand::tilde(&self.input_elf_path));
+
+            let elf_path = format!("{}", shellexpand::tilde(&self.input_elf_path));
+            let is_elf_file_exixt = std::path::Path::new(&elf_path).exists();
 
             if ui.button("Load").clicked() {
-                if !std::path::Path::new(&self.elf_path).exists() {
-                    self.elf_file_is_not_found = true;
-                } else {
-                    self.elf_file_is_not_found = false;
-
-                    if let Some(mcu_id) = crate::debugging_tools::search_target_mcu_name(&PathBuf::from(&self.elf_path))
+                if is_elf_file_exixt {
+                    if let Some(mcu_id) = crate::debugging_tools::search_target_mcu_name(&PathBuf::from(&elf_path))
                     {
                         self.target_mcu_id = mcu_id;
                     }
 
-                    if let Ok(gdb_parser) = GdbParser::launch(&PathBuf::from(&self.elf_path)) {
+                    if let Ok(gdb_parser) = GdbParser::launch(&PathBuf::from(&elf_path)) {
                         self.variable_list = Vec::new();
 
                         self.gdb_parser = Some(gdb_parser);
@@ -75,7 +67,8 @@ impl SymbolSearch {
                     }
                 }
             }
-            if self.elf_file_is_not_found {
+
+            if !is_elf_file_exixt {
                 ui.label("ELF file is not found");
             }
         });
@@ -96,11 +89,10 @@ impl SymbolSearch {
 
                 if self.variable_list.is_empty() {
                     self.variable_list = gdb_parser.load_variable_list();
-                    self.search_results_list = self.variable_list.clone();
 
                     self.selected_list = Vec::new();
                     for vals in self.variable_list.clone() {
-                        self.selected_list.push(MainVariableList {
+                        self.selected_list.push(MainVariableInfo {
                             name: vals.name,
                             types: vals.types,
                             address: vals.address,
@@ -120,23 +112,7 @@ impl SymbolSearch {
         ui.separator();
         ui.horizontal(|ui| {
             ui.label("Search variable name");
-            if ui
-                .text_edit_singleline(&mut self.search_name)
-                //.hint_text("Enter variable name...")
-                .changed()
-            {
-                self.search_results_list = Vec::new();
-
-                for vals in &self.variable_list {
-                    if vals
-                        .name
-                        .to_lowercase()
-                        .contains(&self.search_name.to_lowercase())
-                    {
-                        self.search_results_list.push(vals.clone());
-                    }
-                }
-            }
+            ui.text_edit_singleline(&mut self.search_name);
         });
 
         ui.push_id(1, |ui| {
@@ -167,29 +143,24 @@ impl SymbolSearch {
                     });
                 })
                 .body(|mut body| {
-                    //for vals in &self.search_results_list {
-                    for i in 0..self.selected_list.len() {
-                        body.row(18.0, |mut row| {
-                            if self.selected_list[i]
-                                .name
-                                .to_lowercase()
-                                .contains(&self.search_name.to_lowercase())
-                            {
+                    for selected in self.selected_list.iter_mut() {
+                        if selected.name.to_lowercase().contains(&self.search_name.to_lowercase()) {
+                            body.row(18.0, |mut row| {
                                 row.col(|ui| {
-                                    ui.checkbox(&mut self.selected_list[i].is_selected, "");
+                                    ui.checkbox(&mut selected.is_selected, "");
                                 });
                                 row.col(|ui| {
-                                    ui.label(&self.selected_list[i].address);
+                                    ui.label(&selected.address);
                                 });
                                 row.col(|ui| {
-                                    ui.label(&self.selected_list[i].types);
+                                    ui.label(&selected.types);
                                 });
                                 row.col(|ui| {
-                                    ui.label(&self.selected_list[i].name)
-                                        .on_hover_text(&self.selected_list[i].name);
+                                    ui.label(&selected.name)
+                                        .on_hover_text(&selected.name);
                                 });
-                            }
-                        });
+                            });
+                        }
                     }
                 });
         });
