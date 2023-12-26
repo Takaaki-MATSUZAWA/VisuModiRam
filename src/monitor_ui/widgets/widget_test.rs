@@ -4,15 +4,15 @@ use std::sync::Arc;
 
 use crate::debugging_tools::VariableInfo;
 
-pub struct widgetTest{
+pub struct widgetTest {
     pub name: String,
     pub age: u32,
     watch_list: Option<Arc<Vec<VariableInfo>>>,
 }
 
-impl widgetTest{
-    pub fn new(name: String, age: u32) -> Self{
-        Self{
+impl widgetTest {
+    pub fn new(name: String, age: u32) -> Self {
+        Self {
             name,
             age,
             watch_list: None,
@@ -20,7 +20,7 @@ impl widgetTest{
     }
 }
 
-impl<'a> super::WidgetApp<'a> for widgetTest{
+impl<'a> super::WidgetApp<'a> for widgetTest {
     fn ui(&mut self, ui: &mut egui::Ui) {
         ui.heading("STM32EguiMonitor");
 
@@ -37,7 +37,7 @@ impl<'a> super::WidgetApp<'a> for widgetTest{
         ui.label(format!("Hello '{}', age {}", self.name, self.age));
     }
 
-    fn fetch_watch_list(&mut self, watch_list: &Vec<crate::debugging_tools::VariableInfo>){
+    fn fetch_watch_list(&mut self, watch_list: &Vec<crate::debugging_tools::VariableInfo>) {
         self.watch_list = Some(Arc::new(watch_list.clone()));
     }
 }

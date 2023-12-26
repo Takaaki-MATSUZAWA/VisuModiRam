@@ -8,7 +8,7 @@ pub struct ProbeIfTest {
     pub my_probe: Option<Box<ProbeInterface>>, // Boxを使用して所有権を保持
 }
 
-impl ProbeIfTest{
+impl ProbeIfTest {
     pub fn new() -> Self {
         Self {
             name: "probe interface test".to_string(),
@@ -16,7 +16,7 @@ impl ProbeIfTest{
         }
     }
 
-    pub fn ui(&mut self, probe_if:&mut ProbeInterface, ui: &mut egui::Ui, frame: &eframe::Frame) {
+    pub fn ui(&mut self, probe_if: &mut ProbeInterface, ui: &mut egui::Ui, frame: &eframe::Frame) {
         ui.heading("probe interface test");
         ui.horizontal(|ui| {
             ui.label("waching");

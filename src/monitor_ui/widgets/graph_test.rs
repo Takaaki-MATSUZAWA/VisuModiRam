@@ -1,4 +1,3 @@
-use crate::STM32EguiMonitor;
 use eframe::egui::{self, Color32};
 use egui_extras::{Column, TableBuilder};
 
@@ -10,14 +9,13 @@ use egui_plot::{
 
 use crate::debugging_tools::ProbeInterface;
 
-
 pub struct GraphTest {
     pub name: String,
     pub my_probe: Option<Box<ProbeInterface>>, // Boxを使用して所有権を保持
     time: f64,
 }
 
-impl GraphTest{
+impl GraphTest {
     pub fn new() -> Self {
         Self {
             name: "Graph Windowe test".to_string(),
@@ -26,7 +24,13 @@ impl GraphTest{
         }
     }
 
-    pub fn ui(&mut self, probe_if:&mut ProbeInterface, ui: &mut egui::Ui, ctx: &egui::Context, frame: &eframe::Frame){
+    pub fn ui(
+        &mut self,
+        probe_if: &mut ProbeInterface,
+        ui: &mut egui::Ui,
+        ctx: &egui::Context,
+        frame: &eframe::Frame,
+    ) {
         use std::f32::consts::{PI, TAU};
         self.time = ctx.input(|input_state| input_state.time);
 

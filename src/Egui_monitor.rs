@@ -2,9 +2,9 @@ use eframe::egui::{self, Button, Color32};
 use egui_extras::{Column, TableBuilder};
 
 use crate::debugging_tools::{GdbParser, ProbeInterface, VariableInfo};
-use crate::monitor_ui::{*, self};
+use crate::monitor_ui::{self, *};
 
-pub struct STM32EguiMonitor{
+pub struct STM32EguiMonitor {
     my_probe: ProbeInterface,
     probe_setting_ui: ProbeSetting,
     symbol_serch_ui: SymbolSearch,
@@ -14,10 +14,9 @@ pub struct STM32EguiMonitor{
     watch_list: Vec<VariableInfo>,
 }
 
-impl Default for STM32EguiMonitor{
+impl Default for STM32EguiMonitor {
     fn default() -> Self {
-        let mut se = 
-        Self {
+        let mut se = Self {
             my_probe: Default::default(),
             probe_setting_ui: Default::default(),
             symbol_serch_ui: Default::default(),
@@ -38,11 +37,17 @@ impl Default for STM32EguiMonitor{
 }
 
 impl STM32EguiMonitor {
-    fn setup(&mut self) -> &mut Self{
-        let mut watch_list = Vec::new();
-        watch_list = self.watch_list.clone();
-        self.widgets.push(Widget::new(0, "test 0".to_string(), Box::new(widgetTest::new("aaa".to_string(), 42))));
-        self.widgets.push(Widget::new(1, "test 1".to_string(), Box::new(widgetTest::new("bbb bbb ".to_string(), 12))));
+    fn setup(&mut self) -> &mut Self {
+        self.widgets.push(Widget::new(
+            0,
+            "test 0".to_string(),
+            Box::new(widgetTest::new("aaa".to_string(), 42)),
+        ));
+        self.widgets.push(Widget::new(
+            1,
+            "test 1".to_string(),
+            Box::new(widgetTest::new("bbb bbb ".to_string(), 12)),
+        ));
 
         self
     }
@@ -52,7 +57,7 @@ impl eframe::App for STM32EguiMonitor {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         ctx.request_repaint();
 
-        for w in self.widgets.iter_mut(){
+        for w in self.widgets.iter_mut() {
             w.set_watch_list_ptr(&self.watch_list);
         }
 
@@ -63,11 +68,11 @@ impl eframe::App for STM32EguiMonitor {
             ui.separator();
 
             // symbol search
-            self.symbol_serch_ui.ui(ui, _frame);
+            self.symbol_serch_ui.ui(ctx, ui, _frame);
 
             self.watch_list = Vec::new();
-            for val in &mut self.symbol_serch_ui.selected_list{
-                if val.is_selected{
+            for val in &mut self.symbol_serch_ui.selected_list {
+                if val.is_selected {
                     self.watch_list.push(VariableInfo {
                         name: val.name.clone(),
                         types: val.types.clone(),
@@ -89,7 +94,7 @@ impl eframe::App for STM32EguiMonitor {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Centor Panel");
             // multi widget app test
-            for wgt in self.widgets.iter_mut(){
+            for wgt in self.widgets.iter_mut() {
                 wgt.ui(ctx, ui);
             }
             //self.probe_if_test_ui.my_probe = Some(Box::new(self.my_probe.clone()));
