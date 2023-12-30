@@ -144,7 +144,7 @@ impl eframe::App for LayoutTest {
         }
 
         let mut cmd = Command::Nothing;
-        egui::TopBottomPanel::top("wrap_app_top_bar").show(ctx, |ui| {
+        egui::TopBottomPanel::top("app_top_bar").show(ctx, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.visuals_mut().button_frame = false;
                 self.bar_contents(ui, frame, &mut cmd);

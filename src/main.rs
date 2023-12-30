@@ -1,8 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-mod Egui_monitor;
 mod debugging_tools;
 mod monitor_ui;
+mod Egui_monitor;
 
 use Egui_monitor::STM32EguiMonitor;
 

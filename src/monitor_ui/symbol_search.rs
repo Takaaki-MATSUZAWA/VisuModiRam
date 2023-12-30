@@ -134,7 +134,7 @@ impl SymbolSearch {
         ui.heading("Infomation");
         ui.label("Project Name : ");
         ui.horizontal(|ui| {
-            ui.label("Target MUC : ");
+            ui.label("Target MCU : ");
             ui.text_edit_singleline(&mut self.target_mcu_id);
         });
 

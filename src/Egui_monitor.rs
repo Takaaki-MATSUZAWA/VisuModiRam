@@ -12,6 +12,8 @@ pub struct STM32EguiMonitor {
     graph_test_ui: GraphTest,
     widgets: Vec<monitor_ui::Widget<'static>>,
     watch_list: Vec<VariableInfo>,
+
+    window_cnt: u32,
 }
 
 impl Default for STM32EguiMonitor {
@@ -30,6 +32,7 @@ impl Default for STM32EguiMonitor {
                 Widget::new(1, "test 1".to_string(), Box::new(widgetTest{name: "bbb".to_string(), age:12}))
             ],
              */
+            window_cnt: 3,
         };
         se.setup();
         se
@@ -37,6 +40,7 @@ impl Default for STM32EguiMonitor {
 }
 
 impl STM32EguiMonitor {
+    //#[cfg(disabke)]
     fn setup(&mut self) -> &mut Self {
         self.widgets.push(Widget::new(
             0,
@@ -62,8 +66,18 @@ impl eframe::App for STM32EguiMonitor {
         }
 
         egui::SidePanel::left("setting").show(ctx, |ui| {
+            // add window test
+            if ui.button("add window").clicked(){
+                self.window_cnt += 1;
+                self.widgets.push(Widget::new(
+                    self.window_cnt,
+                    format!("add window {}",self.window_cnt).to_string(),
+                    Box::new(widgetTest::new("bbb bbb ".to_string(), self.window_cnt*10)),
+                ));
+            }
+
             // Probe Setting
-            self.probe_setting_ui.ui(ui, _frame);
+            //self.probe_setting_ui.ui(ui, _frame);
 
             ui.separator();
 
