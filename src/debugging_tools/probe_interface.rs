@@ -42,14 +42,11 @@ impl Default for ProbeInterface {
 }
 
 impl ProbeInterface {
-    pub fn get_connected_probes(&mut self) -> Vec<probe_rs::DebugProbeInfo> {
-        Probe::list_all()
-    }
-
     pub fn set_probe(
         &mut self,
         mcu: String,
         probe: probe_rs::DebugProbeInfo,
+        watch_list: Vec<VariableInfo>,
     ) -> Result<(), std::io::Error> {
         // TODO : mcuがprobe_rsのターゲットに一致するか確認
         self.target_mcu = mcu;
@@ -59,8 +56,6 @@ impl ProbeInterface {
 
         Ok(())
     }
-
-    pub fn prepare_logging() {}
 
     pub fn watching_start(
         &mut self,

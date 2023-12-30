@@ -3,6 +3,7 @@ use egui_extras::{Column, TableBuilder};
 
 use crate::debugging_tools::{GdbParser, ProbeInterface, VariableInfo};
 use crate::monitor_ui::{self, *};
+use crate::com_resource::ComResource;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum Anchor {
@@ -41,13 +42,14 @@ enum Command {
 /// The state that we persist (serialize).
 #[derive(Default)]
 pub struct State {
-    setting_tab: SettingTab,
+    setting_tab: SettingTab2,
     main_tab: MainMonitorTab,
 
     selected_anchor: Anchor,
 }
 pub struct LayoutTest {
     state: State,
+    main_rsrc: ComResource,
 }
 
 impl LayoutTest {
@@ -58,6 +60,7 @@ impl LayoutTest {
         #[allow(unused_mut)]
         let mut slf = Self {
             state: State::default(),
+            main_rsrc: Default::default(),
         };
 
         #[cfg(feature = "persistence")]
@@ -113,6 +116,11 @@ impl LayoutTest {
                     ui.ctx()
                         .open_url(egui::OpenUrl::same_tab(format!("#{anchor}")));
                 }
+
+                // change one shot
+                if selected_anchor == Anchor::MainMonitorTab{
+                   
+                } 
             }
         }
         self.state.selected_anchor = selected_anchor;

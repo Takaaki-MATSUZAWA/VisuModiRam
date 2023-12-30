@@ -11,24 +11,6 @@ pub struct MainMonitorTab {
     window_cnt: u32,
 }
 
-#[cfg(disable)]
-impl MainMonitorTab {
-    fn setup(&mut self) -> &mut Self {
-        self.widgets.push(Box::new(Widget::new(
-            0,
-            "test 0".to_string(),
-            Box::new(widgetTest::new("aaa".to_string(), 42)),
-        )));
-        self.widgets.push(Widget::new(
-            1,
-            "test 1".to_string(),
-            Box::new(widgetTest::new("bbb bbb ".to_string(), 12)),
-        ));
-
-        self
-    }
-}
-
 use crate::monitor_ui::widgetTest;
 
 impl eframe::App for MainMonitorTab {
@@ -37,20 +19,19 @@ impl eframe::App for MainMonitorTab {
 
         egui::SidePanel::left("control")
             .resizable(true)
-            .default_width(300.0)
+            .default_width(150.0)
             .show(ctx, |ui| {
-                ui.heading("probe control panel");
+                ui.heading("watch control");
                 ui.separator();
                 ui.label("text 1");
             });
 
         egui::SidePanel::right("widgets")
             .resizable(true)
-            .default_width(300.0)
+            .default_width(140.0)
             .show(ctx, |ui| {
                 ui.heading("monitor app list");
                 ui.separator();
-                ui.label("text 1");
 
                 if ui.button("add window").clicked(){
                     self.window_cnt += 1;
@@ -69,24 +50,33 @@ impl eframe::App for MainMonitorTab {
                 .striped(true)
                 .resizable(true)
                 .vscroll(true)
-                .column(Column::auto().resizable(true))
-                .column(Column::auto().resizable(true))
+                .column(Column::initial(120.).resizable(true))
+                .column(Column::initial(20.).resizable(true))
                 .header(9.0, |mut header| {
                     header.col(|ui| {
-                        ui.label("window name");
-                        ui.set_width(50.0);
+                        ui.heading("window name");
+                        //ui.set_width(100.0);
                     });
-                    header.col(|ui| {
-                        //ui.heading("Symbol");
-                    });
+                    header.col(|_ui| {});
                 })
                 .body(|mut body| {
                     let mut to_remove = None;
 
                     for wid in &mut self.widgets{
-                        body.row(9.0, |mut row| {
+                        body.row(15.0, |mut row| {
                             row.col(|ui| {
-                                ui.label(&wid.name);
+                                let mut text = wid.name.clone();
+                                let res = ui.text_edit_singleline(&mut text);
+
+                                if res.changed(){
+                                    wid.name = text;
+                                }
+                                if res.hovered(){
+                                    ui.ctx()
+                                        .debug_painter()
+                                        .debug_rect(wid.rect, Color32::RED, "");
+                                }
+                                //ui.label(&wid.name);
                             });
                             row.col(|ui| {
                                 if ui.button("x").clicked() {

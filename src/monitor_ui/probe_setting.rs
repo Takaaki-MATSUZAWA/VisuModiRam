@@ -12,7 +12,7 @@ struct SelectableProbeInfo {
 
 pub struct ProbeSetting {
     probes: Vec<SelectableProbeInfo>,
-    probe_if: ProbeInterface,
+    pub probe_if: ProbeInterface,
     select_sn: Option<String>,
 }
 
@@ -29,6 +29,7 @@ impl ProbeSetting {
     pub fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         ui.heading("Debug probe select");
 
+        #[cfg(predicate)]
         if ui.add(egui::Button::new("probe check")).clicked() {
             let cn_probes = self.probe_if.get_connected_probes();
             self.probes = cn_probes

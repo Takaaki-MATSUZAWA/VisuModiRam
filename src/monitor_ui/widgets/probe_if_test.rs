@@ -40,6 +40,7 @@ impl ProbeIfTest {
             }
         });
 
+        #[cfg(disable)]
         ui.label(format!("data: {}", probe_if.get_data()));
         /*
         if let Some(probe) = &mut self.my_probe {

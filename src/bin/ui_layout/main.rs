@@ -4,6 +4,8 @@
 mod debugging_tools;
 #[path = "../../monitor_ui/mod.rs"]
 mod monitor_ui;
+#[path = "../../com_resource.rs"]
+mod com_resource;
 
 mod layout_test_monitor;
 use layout_test_monitor::LayoutTest;

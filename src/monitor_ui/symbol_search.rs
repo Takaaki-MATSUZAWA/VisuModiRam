@@ -208,4 +208,21 @@ impl SymbolSearch {
                 }
             });
     }
+
+    pub fn get_watch_list(&mut self) -> Vec<VariableInfo>{
+        let mut watch_list:Vec<VariableInfo> = Vec::new();
+
+        for val in &mut self.selected_list{
+            if val.is_selected == true{
+                watch_list.push(VariableInfo{
+                    name: val.name.clone(),
+                    address: val.address.clone(),
+                    types: val.types.clone(),
+                    size: val.size.clone(),
+                });
+            }   
+        }
+
+        watch_list
+    }
 }

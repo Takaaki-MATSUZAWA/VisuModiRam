@@ -9,7 +9,10 @@ pub use probe_if_test::ProbeIfTest;
 mod widget_test;
 pub use widget_test::widgetTest;
 // ----------------------------------------------------------------------------
-use eframe::{egui::{self, Color32}, App};
+use eframe::{
+    egui::{self, Color32, Pos2, Rect, Vec2},
+    App,
+};
 use egui_extras::{Column, TableBuilder};
 use std::sync::Arc;
 
@@ -84,8 +87,6 @@ impl<'a> Widget<'a> {
     }
 }
 
-
-
 //pub trait WidgetApp<'a>: eframe::App {
 pub trait WidgetApp<'a> {
     fn ui(&mut self, ui: &mut egui::Ui);
@@ -98,8 +99,8 @@ impl<'a> eframe::App for dyn WidgetApp<'a> {
         egui::CentralPanel::default().show(ctx, |ui| {
             self.ui(ui);
         });
-    }    
-} 
+    }
+}
 
 // ----------------------------------------------------------------------------
 
@@ -123,14 +124,13 @@ impl Widget2 {
 
 // ----------------------------------------------------------------------------
 //pub trait WidgetApp2: eframe::App {
-pub trait WidgetApp2{
-        fn fetch_watch_list(&mut self, watch_list: &Vec<crate::debugging_tools::VariableInfo>);
+pub trait WidgetApp2 {
+    fn fetch_watch_list(&mut self, watch_list: &Vec<crate::debugging_tools::VariableInfo>);
     // 既にeframe::Appに含まれているため、この行は不要です
     fn update(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame);
 }
 
 // ----------------------------------------------------------------------------
-
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum Anchor {
@@ -185,9 +185,12 @@ impl State {
 }
 
 pub struct WidgetWindow {
-    state: State,
     pub name: String,
     pub id: u32,
+    pub rect: Rect,
+
+    state: State,
+    pre_name: String,
 }
 //#[cfg(disable)]
 impl WidgetWindow {
@@ -199,8 +202,10 @@ impl WidgetWindow {
         #[allow(unused_mut)]
         let mut slf = Self {
             id,
+            pre_name: name.clone(),
             name,
             state: State::new(wiget_ui),
+            rect: Rect::from_min_size(Pos2::new(0.0, 0.0), Vec2::new(0.0, 0.0)),
         };
 
         #[cfg(feature = "persistence")]
@@ -214,15 +219,9 @@ impl WidgetWindow {
 
     //fn apps_iter_mut(&mut self) -> impl Iterator<Item = (&str, Anchor, &mut dyn eframe::App)> {
     fn apps_iter_mut(&mut self) -> impl Iterator<Item = (&str, Anchor)> {
-            let vec = vec![
-            (
-                "📈 Monitor",
-                Anchor::MonitorTab,
-            ),
-            (
-                "📝 Watch List",
-                Anchor::SymbolPickupTab,
-            ),
+        let vec = vec![
+            ("📈 Monitor", Anchor::MonitorTab),
+            ("📝 Watch List", Anchor::SymbolPickupTab),
         ];
         vec.into_iter()
     }
@@ -278,46 +277,58 @@ impl WidgetWindow {
 }
 //impl eframe::App for WidgetWindow {
 impl WidgetWindow {
-        #[cfg(disable)]
+    #[cfg(disable)]
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, &self.state);
     }
 
     pub fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        egui::Window::new(self.name.clone())
-            //.default_size(egui::vec2(300.0, 500.0))
-            //.resizable(true)
-            //.vscroll(true)
-            .show(ctx, |ui|{
-                //#[cfg(disable)]
-                #[cfg(not(target_arch = "wasm32"))]
-                if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::F11)) {
-                    frame.set_fullscreen(!frame.info().window_info.fullscreen);
-                }
-                
-                let mut cmd = Command::Nothing;
-                egui::TopBottomPanel::top(format!("bar_{}",self.id)).show_inside(ui, |ui| {
-                    ui.horizontal_wrapped(|ui| {
-                        ui.visuals_mut().button_frame = false;
-                        self.bar_contents(ui, frame, &mut cmd);
-                    });
-                });
-                
-                egui::TopBottomPanel::bottom(format!("btm_{}",self.id))
-                    .resizable(false)
-                    .min_height(0.0)
-                    .show_inside(ui, |ui| {
-                        ui.vertical_centered(|ui| {});
-                    });
+        let now_name = self.name.clone();
 
-                self.show_selected_app(ui, frame); // ctxをuiに変更
-                
-                // On web, the browser controls `pixels_per_point`.
-                #[cfg(disable)]
-                if !frame.is_web() {
-                    egui::gui_zoom::zoom_with_keyboard_shortcuts(ui, frame.info().native_pixels_per_point); // ctxをuiに変更
-                }
+        let mut wind = egui::Window::new(now_name.clone());
+
+        if now_name != self.pre_name {
+            wind = wind.current_pos(self.rect.left_top());
+            self.pre_name = now_name;
+        }
+        let mut res = wind.show(ctx, |ui| {
+            //#[cfg(disable)]
+            #[cfg(not(target_arch = "wasm32"))]
+            if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::F11)) {
+                frame.set_fullscreen(!frame.info().window_info.fullscreen);
+            }
+
+            let mut cmd = Command::Nothing;
+            egui::TopBottomPanel::top(format!("bar_{}", self.id)).show_inside(ui, |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    ui.visuals_mut().button_frame = false;
+                    self.bar_contents(ui, frame, &mut cmd);
+                });
             });
+
+            egui::TopBottomPanel::bottom(format!("btm_{}", self.id))
+                .resizable(false)
+                .min_height(0.0)
+                .show_inside(ui, |ui| {
+                    ui.vertical_centered(|ui| {});
+                });
+
+            self.show_selected_app(ui, frame); // ctxをuiに変更
+
+            // On web, the browser controls `pixels_per_point`.
+            #[cfg(disable)]
+            if !frame.is_web() {
+                egui::gui_zoom::zoom_with_keyboard_shortcuts(
+                    ui,
+                    frame.info().native_pixels_per_point,
+                ); // ctxをuiに変更
+            }
+        });
+
+        if let Some(inner_response) = res {
+            let rect = inner_response.response.rect;
+            self.rect = rect;
+        }
     }
 }
 
@@ -336,22 +347,22 @@ pub const APP_KEY: &str = "app";
 // ----------------------------------------------------------------------------
 
 #[derive(Default)]
-pub struct WatchSymbolSelectTab{
+pub struct WatchSymbolSelectTab {
     watch_list: Vec<SelectableVariableInfo>,
 }
 
-#[cfg(disable)]
-
 impl WatchSymbolSelectTab {
-    fn fetch_watch_list(&mut self, src_list: &Vec<crate::debugging_tools::VariableInfo>){
+    fn fetch_watch_list(&mut self, src_list: &Vec<crate::debugging_tools::VariableInfo>) {
         self.watch_list = src_list
-            .iter().map(|val| SelectableVariableInfo{
-                name: val.name,
-                types: val.types,
-                address: val.address,
-                size: val.size,
+            .iter()
+            .map(|val| SelectableVariableInfo {
+                name: val.name.clone(),
+                types: val.types.clone(),
+                address: val.address.clone(),
+                size: val.size.clone(),
                 is_selected: false,
-            }).collect();
+            })
+            .collect();
     }
 }
 
@@ -365,6 +376,3 @@ impl WatchSymbolSelectTab {
 }
 
 // ----------------------------------------------------------------------------
-pub trait WidgetApp3: eframe::App  {
-    
-}

@@ -8,8 +8,8 @@ use super::SymbolSearch;
 
 #[derive(Default)]
 pub struct SettingTab {
-    probe_setting_ui: ProbeSetting,
-    symbol_serch_ui: SymbolSearch,
+    pub probe_setting_ui: ProbeSetting,
+    pub symbol_serch_ui: SymbolSearch,
 }
 
 impl eframe::App for SettingTab {
