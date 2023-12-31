@@ -67,12 +67,15 @@ impl eframe::App for STM32EguiMonitor {
 
         egui::SidePanel::left("setting").show(ctx, |ui| {
             // add window test
-            if ui.button("add window").clicked(){
+            if ui.button("add window").clicked() {
                 self.window_cnt += 1;
                 self.widgets.push(Widget::new(
                     self.window_cnt,
-                    format!("add window {}",self.window_cnt).to_string(),
-                    Box::new(widgetTest::new("bbb bbb ".to_string(), self.window_cnt*10)),
+                    format!("add window {}", self.window_cnt).to_string(),
+                    Box::new(widgetTest::new(
+                        "bbb bbb ".to_string(),
+                        self.window_cnt * 10,
+                    )),
                 ));
             }
 

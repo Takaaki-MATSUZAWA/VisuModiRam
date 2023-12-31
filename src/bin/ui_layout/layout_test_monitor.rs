@@ -1,9 +1,9 @@
 use eframe::egui::{self, Button, Color32};
 use egui_extras::{Column, TableBuilder};
 
+use crate::com_resource::ComResource;
 use crate::debugging_tools::{GdbParser, ProbeInterface2, VariableInfo, WatchSetting};
 use crate::monitor_ui::{self, *};
-use crate::com_resource::ComResource;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum Anchor {

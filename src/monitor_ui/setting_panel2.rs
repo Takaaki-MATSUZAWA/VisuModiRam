@@ -7,19 +7,8 @@ use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 use rfd::FileDialog;
 use std::path::PathBuf;
 
-use crate::debugging_tools::{GdbParser, VariableInfo, WatchSetting};
+use crate::debugging_tools::*;
 use probe_rs::Probe;
-
-// ----------------------------------------------------------------------------
-
-#[derive(Default, Clone)]
-pub struct SelectableVariableInfo {
-    pub name: String,
-    pub types: String,
-    pub address: String,
-    pub size: usize,
-    pub is_selected: bool,
-}
 
 #[derive(Default)]
 struct SymbolSearch {
@@ -128,18 +117,8 @@ impl SettingTab2 {
                 if self.symbol_search.variable_list.is_empty() {
                     self.symbol_search.variable_list = gdb_parser.load_variable_list();
 
-                    self.symbol_search.selected_list = Vec::new();
-                    for vals in self.symbol_search.variable_list.clone() {
-                        self.symbol_search
-                            .selected_list
-                            .push(SelectableVariableInfo {
-                                name: vals.name,
-                                types: vals.types,
-                                address: vals.address,
-                                size: vals.size,
-                                is_selected: false,
-                            });
-                    }
+                    self.symbol_search.selected_list =
+                        SelectableVariableInfo::generate(&self.symbol_search.variable_list);
                 }
             }
         }
@@ -167,10 +146,10 @@ impl SettingTab2 {
 
         let window_width = ctx.available_rect().width() / 2.0;
 
-        const CHECK_CLM:f32 = 15.;
-        const ADDR_CLM:f32  = 85.;
-        const TYPE_CLM:f32  = 120.;
-        const SIZE_CLM:f32  = 40.;
+        const CHECK_CLM: f32 = 15.;
+        const ADDR_CLM: f32 = 85.;
+        const TYPE_CLM: f32 = 120.;
+        const SIZE_CLM: f32 = 40.;
 
         TableBuilder::new(ui)
             .striped(true)
@@ -183,7 +162,7 @@ impl SettingTab2 {
             .column(Column::initial(TYPE_CLM).resizable(true))
             .column(Column::initial(SIZE_CLM).resizable(true))
             .column(
-                Column::initial(window_width - (CHECK_CLM+ADDR_CLM+TYPE_CLM+SIZE_CLM+50.0))
+                Column::initial(window_width - (CHECK_CLM + ADDR_CLM + TYPE_CLM + SIZE_CLM + 50.0))
                     .at_least(50.0)
                     .resizable(true),
             )
@@ -221,7 +200,7 @@ impl SettingTab2 {
                                 ui.label(&selected.types);
                             });
                             row.col(|ui| {
-                                ui.label(format!("{}",&selected.size));
+                                ui.label(format!("{}", &selected.size));
                             });
                             row.col(|ui| {
                                 ui.label(&selected.name).on_hover_text(&selected.name);
@@ -232,11 +211,12 @@ impl SettingTab2 {
             });
     }
 
-    fn check_probe(&mut self){
+    fn check_probe(&mut self) {
         let probes = Probe::list_all();
-            
+
         if probes.len() == 1 {
-            self.probe_setting.select_sn = probes.get(0).and_then(|probe| probe.serial_number.clone());
+            self.probe_setting.select_sn =
+                probes.get(0).and_then(|probe| probe.serial_number.clone());
         }
         self.probe_setting.probes = probes;
     }
@@ -393,26 +373,14 @@ impl SettingTab2 {
     }
 
     pub fn get_watch_list(&mut self) -> Vec<VariableInfo> {
-        let mut watch_list: Vec<VariableInfo> = Vec::new();
-
-        for val in &mut self.symbol_search.selected_list {
-            if val.is_selected == true {
-                watch_list.push(VariableInfo {
-                    name: val.name.clone(),
-                    address: val.address.clone(),
-                    types: val.types.clone(),
-                    size: val.size.clone(),
-                });
-            }
-        }
-        watch_list
+        SelectableVariableInfo::pick_selected(&self.symbol_search.selected_list)
     }
 
-    pub fn get_watch_setting(&mut self) -> WatchSetting{
-        WatchSetting{
+    pub fn get_watch_setting(&mut self) -> WatchSetting {
+        WatchSetting {
             target_mcu: self.symbol_search.target_mcu_id.clone(),
-            probe_sn:   self.probe_setting.select_sn.clone().unwrap_or_default(),
-            watch_list:  self.get_watch_list(),
+            probe_sn: self.probe_setting.select_sn.clone().unwrap_or_default(),
+            watch_list: self.get_watch_list(),
         }
     }
 }

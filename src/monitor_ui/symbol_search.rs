@@ -6,19 +6,10 @@ use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 use env_logger::fmt::Color;
 use std::path::PathBuf;
 
-use crate::debugging_tools::{GdbParser, VariableInfo};
+use crate::debugging_tools::*;
 
 use rfd::FileDialog;
 
-// ----------------------------------------------------------------------------
-#[derive(Default, Clone)]
-pub struct SelectableVariableInfo {
-    pub name: String,
-    pub types: String,
-    pub address: String,
-    pub size: usize,
-    pub is_selected: bool,
-}
 // ----------------------------------------------------------------------------
 
 #[derive(Default)]
@@ -110,16 +101,8 @@ impl SymbolSearch {
                 if self.variable_list.is_empty() {
                     self.variable_list = gdb_parser.load_variable_list();
 
-                    self.selected_list = Vec::new();
-                    for vals in self.variable_list.clone() {
-                        self.selected_list.push(SelectableVariableInfo {
-                            name: vals.name,
-                            types: vals.types,
-                            address: vals.address,
-                            size: vals.size,
-                            is_selected: false,
-                        });
-                    }
+                    //self.selected_list = Vec::new();
+                    self.selected_list = SelectableVariableInfo::generate(&self.variable_list);
                 }
             }
         }
@@ -209,20 +192,8 @@ impl SymbolSearch {
             });
     }
 
-    pub fn get_watch_list(&mut self) -> Vec<VariableInfo>{
-        let mut watch_list:Vec<VariableInfo> = Vec::new();
-
-        for val in &mut self.selected_list{
-            if val.is_selected == true{
-                watch_list.push(VariableInfo{
-                    name: val.name.clone(),
-                    address: val.address.clone(),
-                    types: val.types.clone(),
-                    size: val.size.clone(),
-                });
-            }   
-        }
-
-        watch_list
+    #[cfg(disable)]
+    pub fn get_watch_list(&mut self) -> Vec<VariableInfo> {
+        SelectableVariableInfo::pick_selected(&self.selected_list)
     }
 }

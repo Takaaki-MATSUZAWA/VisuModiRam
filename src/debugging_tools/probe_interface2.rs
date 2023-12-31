@@ -1,11 +1,11 @@
 use super::gdb_parser::VariableInfo;
-use probe_rs::{MemoryInterface, Permissions, Probe, Session, Core};
+use probe_rs::{Core, MemoryInterface, Permissions, Probe, Session};
 use sensorlog::Sensorlog;
 use shellexpand;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-#[derive(Default,Clone,Debug)]
+#[derive(Default, Clone, Debug)]
 pub struct WatchSetting {
     pub target_mcu: String,
     pub probe_sn: String,
@@ -21,7 +21,6 @@ pub struct ProbeInterface2 {
     //session: Arc<Mutex<Option<Session>>>,
     //core_session: Arc<Mutex<Option<Core>>>,
     //core_holder: Arc<Mutex<CoreHolder>>,
-
     watch_list: Arc<Mutex<Vec<VariableInfo>>>,
     watching_flag: Arc<Mutex<bool>>,
     temp_data: Arc<Mutex<i32>>,
@@ -54,7 +53,6 @@ impl Default for ProbeInterface2 {
             //core_session: Arc::new(Mutex::new(None)),
             //session: Arc::new(Mutex::new(None)),
             //core_holder: Arc::new(Mutex::new(CoreHolder { core_session: None })),
-
         }
     }
 }
@@ -63,7 +61,7 @@ impl ProbeInterface2 {
     pub fn set_probe(&mut self, setting: WatchSetting) -> Result<(), probe_rs::Error> {
         /*
         let probes = Probe::list_all();
-        
+
         let probe = probes
             .into_iter()
             .find(|probe| probe.serial_number == Some(setting.probe_sn.clone()))
@@ -80,7 +78,7 @@ impl ProbeInterface2 {
         let core_session = Arc::new(Mutex::new(core_session));
         let mut core_holder_guard = self.core_holder.lock().unwrap();
         core_holder_guard.core_session = Some(core_session);
-        
+
         */
         self.setting = setting.clone();
         Ok(())
@@ -108,7 +106,7 @@ impl ProbeInterface2 {
 
         std::thread::spawn(move || {
             let probes = Probe::list_all();
-        
+
             let probe = probes
                 .into_iter()
                 .find(|probe| probe.serial_number == Some(setting.probe_sn.clone()))
@@ -120,10 +118,15 @@ impl ProbeInterface2 {
                 .unwrap();
 
             // Attach to a chip.
-            let mut session = probe.attach(setting.target_mcu.clone(), Permissions::default()).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+            let mut session = probe
+                .attach(setting.target_mcu.clone(), Permissions::default())
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
             // Select a core.
             let mut core = session.core(0).or_else(|_| {
-                Err(std::io::Error::new(std::io::ErrorKind::Other, "No matching probe found"))
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "No matching probe found",
+                ))
             })?;
 
             loop {
@@ -138,19 +141,22 @@ impl ProbeInterface2 {
                     .store_measurement(None, "temp_data", &(*data.lock().unwrap()).to_string())
                     .unwrap();
 
-                for symbol in &setting.watch_list{
+                for symbol in &setting.watch_list {
                     let val_name = symbol.name.clone();
                     let address = if symbol.address.starts_with("0x") {
                         u64::from_str_radix(&symbol.address[2..], 16)
                     } else {
                         symbol.address.parse::<u64>()
-                    }.expect("failed to parse watchlist variable address");
-                    let val = core.read_word_32(address).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
-                    
+                    }
+                    .expect("failed to parse watchlist variable address");
+                    let val = core.read_word_32(address).map_err(|e| {
+                        std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
+                    })?;
+
                     _log_service
                         .lock()
                         .unwrap()
-                        .store_measurement(None, &val_name.to_string(), &format!("{}",val))
+                        .store_measurement(None, &val_name.to_string(), &format!("{}", val))
                         .unwrap();
                 }
                 std::thread::sleep(duration);
@@ -189,4 +195,3 @@ impl ProbeInterface2 {
         vec
     }
 }
-

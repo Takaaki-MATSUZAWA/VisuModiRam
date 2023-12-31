@@ -15,18 +15,15 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 use regex::Regex;
-//use futures::prelude::*;
 
-//use dirs;
-
-// $env:GDB_BINARY = "C:\ProgramData\chocolatey\bin\arm-none-eabi-gdb.exe"
-//use gdb;
-#[derive(Clone)]
-pub struct GdbParser {
-    stdin: Arc<Mutex<BufWriter<process::ChildStdin>>>,
-    stdout: Arc<Mutex<BufReader<process::ChildStdout>>>,
-    variable_list: Arc<Mutex<Vec<VariableInfo>>>,
-    scan_prgress: Arc<Mutex<f64>>,
+// ----------------------------------------------------------------------------
+#[derive(Default, Clone)]
+pub struct SelectableVariableInfo {
+    pub name: String,
+    pub types: String,
+    pub address: String,
+    pub size: usize,
+    pub is_selected: bool,
 }
 
 #[derive(Clone, Debug)] // Debugを追加
@@ -35,6 +32,68 @@ pub struct VariableInfo {
     pub types: String,
     pub address: String,
     pub size: usize,
+}
+// ----------------------------------------------------------------------------
+impl SelectableVariableInfo {
+    pub fn generate(list: &Vec<VariableInfo>) -> Vec<SelectableVariableInfo> {
+        let mut new_list = Vec::new();
+
+        for vals in list {
+            new_list.push(SelectableVariableInfo {
+                name: vals.name.clone(),
+                types: vals.types.clone(),
+                address: vals.address.clone(),
+                size: vals.size.clone(),
+                is_selected: false,
+            });
+        }
+        new_list
+    }
+
+    pub fn fetch(src: &Vec<VariableInfo>, dist: &mut Vec<SelectableVariableInfo>) {
+        let new_list: Vec<SelectableVariableInfo> = src
+            .iter()
+            .map(|vals| SelectableVariableInfo {
+                name: vals.name.clone(),
+                types: vals.types.clone(),
+                address: vals.address.clone(),
+                size: vals.size,
+                is_selected: false,
+            })
+            .collect();
+
+        dist.retain(|item| new_list.iter().any(|new_item| new_item.name == item.name));
+        for new_item in new_list {
+            if !dist.iter().any(|item| item.name == new_item.name) {
+                dist.push(new_item);
+            }
+        }
+    }
+
+    pub fn pick_selected(list: &Vec<SelectableVariableInfo>) -> Vec<VariableInfo> {
+        let mut new_list = Vec::new();
+
+        for val in list {
+            if val.is_selected == true {
+                new_list.push(VariableInfo {
+                    name: val.name.clone(),
+                    address: val.address.clone(),
+                    types: val.types.clone(),
+                    size: val.size.clone(),
+                });
+            }
+        }
+        new_list
+    }
+}
+// ----------------------------------------------------------------------------
+// $env:GDB_BINARY = "C:\ProgramData\chocolatey\bin\arm-none-eabi-gdb.exe"
+#[derive(Clone)]
+pub struct GdbParser {
+    stdin: Arc<Mutex<BufWriter<process::ChildStdin>>>,
+    stdout: Arc<Mutex<BufReader<process::ChildStdout>>>,
+    variable_list: Arc<Mutex<Vec<VariableInfo>>>,
+    scan_prgress: Arc<Mutex<f64>>,
 }
 
 #[derive(Debug)]

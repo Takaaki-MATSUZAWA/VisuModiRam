@@ -16,9 +16,9 @@ use eframe::{
 use egui_extras::{Column, TableBuilder};
 use std::sync::Arc;
 
-use crate::debugging_tools::VariableInfo;
+use crate::debugging_tools::*;
 
-use super::symbol_search::SelectableVariableInfo;
+//use super::symbol_search::SelectableVariableInfo;
 
 pub struct Widget<'a> {
     pub id: u32,
@@ -313,22 +313,7 @@ impl WidgetWindow {
     }
 
     pub fn fetch_watch_list(&mut self, list: &Vec<VariableInfo>) {
-        let new_list: Vec<SelectableVariableInfo> = list.iter()
-            .map(|vals| SelectableVariableInfo {
-                name: vals.name.clone(),
-                types: vals.types.clone(),
-                address: vals.address.clone(),
-                size: vals.size,
-                is_selected: false,
-            })
-            .collect();
-    
-        self.state.select_tab.watch_list.retain(|item| new_list.iter().any(|new_item| new_item.name == item.name));
-        for new_item in new_list {
-            if !self.state.select_tab.watch_list.iter().any(|item| item.name == new_item.name) {
-                self.state.select_tab.watch_list.push(new_item);
-            }
-        }
+        SelectableVariableInfo::fetch(&list, &mut self.state.select_tab.watch_list);
     }
 }
 
@@ -352,49 +337,35 @@ pub struct WatchSymbolSelectTab {
 }
 
 impl WatchSymbolSelectTab {
-    #[cfg(disable)]
-    pub fn fetch_watch_list(&mut self, src_list: &Vec<crate::debugging_tools::VariableInfo>) {
-        self.watch_list = src_list
-            .iter()
-            .map(|val| SelectableVariableInfo {
-                name: val.name.clone(),
-                types: val.types.clone(),
-                address: val.address.clone(),
-                size: val.size.clone(),
-                is_selected: false,
-            })
-            .collect();
-    }
-
-    pub fn update(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame, rect:Rect) {
+    pub fn update(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame, rect: Rect) {
         egui::CentralPanel::default().show_inside(ui, |ui| {
-            const CHECK_CLM:f32 = 15.;
-            const TYPE_CLM:f32  = 100.;
+            const CHECK_CLM: f32 = 15.;
+            const TYPE_CLM: f32 = 100.;
 
             TableBuilder::new(ui)
-            .striped(true)
-            .resizable(true)
-            .vscroll(true)
-            .drag_to_scroll(true)
-            //.max_scroll_height(10.)
-            .column(Column::initial(CHECK_CLM).resizable(false))
-            .column(Column::initial(TYPE_CLM).resizable(true))
-            .column(
-                Column::initial(rect.width() - (CHECK_CLM+TYPE_CLM+50.0))
-                    .at_least(50.0)
-                    .resizable(true),
-            )
-            .header(9.0, |mut header| {
-                header.col(|_| {});
-                header.col(|ui| {
-                    ui.heading("Type");
-                });
-                header.col(|ui| {
-                    ui.heading("Symbol Name");
-                });
-            })
-            .body(|mut body| {
-                for selected in self.watch_list.iter_mut() {
+                .striped(true)
+                .resizable(true)
+                .vscroll(true)
+                .drag_to_scroll(true)
+                //.max_scroll_height(10.)
+                .column(Column::initial(CHECK_CLM).resizable(false))
+                .column(Column::initial(TYPE_CLM).resizable(true))
+                .column(
+                    Column::initial(rect.width() - (CHECK_CLM + TYPE_CLM + 50.0))
+                        .at_least(50.0)
+                        .resizable(true),
+                )
+                .header(9.0, |mut header| {
+                    header.col(|_| {});
+                    header.col(|ui| {
+                        ui.heading("Type");
+                    });
+                    header.col(|ui| {
+                        ui.heading("Symbol Name");
+                    });
+                })
+                .body(|mut body| {
+                    for selected in self.watch_list.iter_mut() {
                         body.row(20.0, |mut row| {
                             row.col(|ui| {
                                 ui.checkbox(&mut selected.is_selected, "")
@@ -409,7 +380,7 @@ impl WatchSymbolSelectTab {
                         });
                     }
                 });
-            });
+        });
     }
 }
 
