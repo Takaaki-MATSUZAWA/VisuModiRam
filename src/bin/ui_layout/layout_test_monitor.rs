@@ -1,7 +1,7 @@
 use eframe::egui::{self, Button, Color32};
 use egui_extras::{Column, TableBuilder};
 
-use crate::debugging_tools::{GdbParser, ProbeInterface, VariableInfo};
+use crate::debugging_tools::{GdbParser, ProbeInterface2, VariableInfo, WatchSetting};
 use crate::monitor_ui::{self, *};
 use crate::com_resource::ComResource;
 
@@ -49,7 +49,7 @@ pub struct State {
 }
 pub struct LayoutTest {
     state: State,
-    main_rsrc: ComResource,
+    watch_setting: WatchSetting,
 }
 
 impl LayoutTest {
@@ -60,7 +60,7 @@ impl LayoutTest {
         #[allow(unused_mut)]
         let mut slf = Self {
             state: State::default(),
-            main_rsrc: Default::default(),
+            watch_setting: Default::default(),
         };
 
         #[cfg(feature = "persistence")]
@@ -105,6 +105,7 @@ impl LayoutTest {
 
         ui.separator();
 
+        let mut switch_to_main_flag = false;
         let mut selected_anchor = self.state.selected_anchor;
         for (name, anchor, _app) in self.apps_iter_mut() {
             if ui
@@ -118,12 +119,17 @@ impl LayoutTest {
                 }
 
                 // change one shot
-                if selected_anchor == Anchor::MainMonitorTab{
-                   
-                } 
+                if selected_anchor == Anchor::MainMonitorTab {
+                    switch_to_main_flag = true;
+                }
             }
         }
         self.state.selected_anchor = selected_anchor;
+
+        if switch_to_main_flag {
+            let setting = self.state.setting_tab.get_watch_setting().clone();
+            self.state.main_tab.probe_if.set_probe(setting).unwrap();
+        }
     }
 
     fn run_cmd(&mut self, ctx: &egui::Context, cmd: Command) {

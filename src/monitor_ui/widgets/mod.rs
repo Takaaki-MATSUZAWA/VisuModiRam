@@ -196,9 +196,6 @@ pub struct WidgetWindow {
 impl WidgetWindow {
     //pub fn new(cc: &eframe::CreationContext<'_>, wiget_ui: Box<dyn WidgetApp2>) -> Self {
     pub fn new(id: u32, name: String, wiget_ui: Box<dyn WidgetApp2>) -> Self {
-        // This gives us image support:
-        //egui_extras::install_image_loaders(&cc.egui_ctx);
-
         #[allow(unused_mut)]
         let mut slf = Self {
             id,
@@ -227,7 +224,7 @@ impl WidgetWindow {
     }
 
     fn update_select_tab(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
-        self.state.select_tab.update(ui, frame);
+        self.state.select_tab.update(ui, frame, self.rect);
     }
 
     fn update_monitor_tab(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
@@ -235,19 +232,6 @@ impl WidgetWindow {
     }
 
     pub fn show_selected_app(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
-        let selected_anchor = self.state.selected_anchor;
-
-        //for (_name, anchor, app) in self.apps_iter_mut() {
-        #[cfg(disable)]
-        for (_name, anchor) in self.apps_iter_mut() {
-            if anchor == selected_anchor || ctx.memory(|mem| mem.everything_is_visible()) {
-                match anchor {
-                    Anchor::MonitorTab => self.update_monitor_tab(ctx, frame),
-                    Anchor::SymbolPickupTab => self.update_select_tab(ctx, frame),
-                }
-                //app.update(ctx, frame);
-            }
-        }
         let anchor_to_update = self.state.selected_anchor;
         match anchor_to_update {
             Anchor::MonitorTab => self.update_monitor_tab(ui, frame),
@@ -256,9 +240,6 @@ impl WidgetWindow {
     }
 
     fn bar_contents(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame, cmd: &mut Command) {
-        //egui::widgets::global_dark_light_mode_switch(ui);
-        //ui.separator();
-
         let mut selected_anchor = self.state.selected_anchor;
         for (name, anchor) in self.apps_iter_mut() {
             if ui
@@ -330,6 +311,25 @@ impl WidgetWindow {
             self.rect = rect;
         }
     }
+
+    pub fn fetch_watch_list(&mut self, list: &Vec<VariableInfo>) {
+        let new_list: Vec<SelectableVariableInfo> = list.iter()
+            .map(|vals| SelectableVariableInfo {
+                name: vals.name.clone(),
+                types: vals.types.clone(),
+                address: vals.address.clone(),
+                size: vals.size,
+                is_selected: false,
+            })
+            .collect();
+    
+        self.state.select_tab.watch_list.retain(|item| new_list.iter().any(|new_item| new_item.name == item.name));
+        for new_item in new_list {
+            if !self.state.select_tab.watch_list.iter().any(|item| item.name == new_item.name) {
+                self.state.select_tab.watch_list.push(new_item);
+            }
+        }
+    }
 }
 
 #[cfg(disable)]
@@ -348,11 +348,12 @@ pub const APP_KEY: &str = "app";
 
 #[derive(Default)]
 pub struct WatchSymbolSelectTab {
-    watch_list: Vec<SelectableVariableInfo>,
+    pub watch_list: Vec<SelectableVariableInfo>,
 }
 
 impl WatchSymbolSelectTab {
-    fn fetch_watch_list(&mut self, src_list: &Vec<crate::debugging_tools::VariableInfo>) {
+    #[cfg(disable)]
+    pub fn fetch_watch_list(&mut self, src_list: &Vec<crate::debugging_tools::VariableInfo>) {
         self.watch_list = src_list
             .iter()
             .map(|val| SelectableVariableInfo {
@@ -364,14 +365,51 @@ impl WatchSymbolSelectTab {
             })
             .collect();
     }
-}
 
-impl WatchSymbolSelectTab {
-    pub fn update(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+    pub fn update(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame, rect:Rect) {
         egui::CentralPanel::default().show_inside(ui, |ui| {
-            ui.heading("probe setting");
-            //self.probe_setting_ui.ui(ui, frame);
-        });
+            const CHECK_CLM:f32 = 15.;
+            const TYPE_CLM:f32  = 100.;
+
+            TableBuilder::new(ui)
+            .striped(true)
+            .resizable(true)
+            .vscroll(true)
+            .drag_to_scroll(true)
+            //.max_scroll_height(10.)
+            .column(Column::initial(CHECK_CLM).resizable(false))
+            .column(Column::initial(TYPE_CLM).resizable(true))
+            .column(
+                Column::initial(rect.width() - (CHECK_CLM+TYPE_CLM+50.0))
+                    .at_least(50.0)
+                    .resizable(true),
+            )
+            .header(9.0, |mut header| {
+                header.col(|_| {});
+                header.col(|ui| {
+                    ui.heading("Type");
+                });
+                header.col(|ui| {
+                    ui.heading("Symbol Name");
+                });
+            })
+            .body(|mut body| {
+                for selected in self.watch_list.iter_mut() {
+                        body.row(20.0, |mut row| {
+                            row.col(|ui| {
+                                ui.checkbox(&mut selected.is_selected, "")
+                                    .on_hover_text("add watch list");
+                            });
+                            row.col(|ui| {
+                                ui.label(&selected.types);
+                            });
+                            row.col(|ui| {
+                                ui.label(&selected.name).on_hover_text(&selected.name);
+                            });
+                        });
+                    }
+                });
+            });
     }
 }
 

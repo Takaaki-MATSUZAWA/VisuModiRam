@@ -7,7 +7,7 @@ use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 use rfd::FileDialog;
 use std::path::PathBuf;
 
-use crate::debugging_tools::{GdbParser, VariableInfo};
+use crate::debugging_tools::{GdbParser, VariableInfo, WatchSetting};
 use probe_rs::Probe;
 
 // ----------------------------------------------------------------------------
@@ -84,6 +84,7 @@ impl SettingTab2 {
             let is_elf_file_exixt = std::path::Path::new(&elf_path).exists();
 
             if ui.button("Load").clicked() {
+                self.check_probe();
                 if is_elf_file_exixt {
                     if let Some(mcu_id) =
                         crate::debugging_tools::search_target_mcu_name(&PathBuf::from(&elf_path))
@@ -166,8 +167,8 @@ impl SettingTab2 {
 
         let window_width = ctx.available_rect().width() / 2.0;
 
-        const CHECK_CLM:f32 = 10.;
-        const ADDR_CLM:f32  = 100.;
+        const CHECK_CLM:f32 = 15.;
+        const ADDR_CLM:f32  = 85.;
         const TYPE_CLM:f32  = 120.;
         const SIZE_CLM:f32  = 40.;
 
@@ -177,7 +178,7 @@ impl SettingTab2 {
             .vscroll(true)
             .drag_to_scroll(true)
             //.max_scroll_height(10.)
-            .column(Column::initial(CHECK_CLM).resizable(true))
+            .column(Column::initial(CHECK_CLM).resizable(false))
             .column(Column::initial(ADDR_CLM).resizable(true))
             .column(Column::initial(TYPE_CLM).resizable(true))
             .column(Column::initial(SIZE_CLM).resizable(true))
@@ -231,11 +232,20 @@ impl SettingTab2 {
             });
     }
 
+    fn check_probe(&mut self){
+        let probes = Probe::list_all();
+            
+        if probes.len() == 1 {
+            self.probe_setting.select_sn = probes.get(0).and_then(|probe| probe.serial_number.clone());
+        }
+        self.probe_setting.probes = probes;
+    }
+
     fn probe_setting_ui(&mut self, ui: &mut egui::Ui) {
         ui.heading("Debug probe select");
 
         if ui.add(egui::Button::new("probe check")).clicked() {
-            self.probe_setting.probes = Probe::list_all();
+            self.check_probe();
         }
 
         StripBuilder::new(ui)
@@ -396,5 +406,13 @@ impl SettingTab2 {
             }
         }
         watch_list
+    }
+
+    pub fn get_watch_setting(&mut self) -> WatchSetting{
+        WatchSetting{
+            target_mcu: self.symbol_search.target_mcu_id.clone(),
+            probe_sn:   self.probe_setting.select_sn.clone().unwrap_or_default(),
+            watch_list:  self.get_watch_list(),
+        }
     }
 }
