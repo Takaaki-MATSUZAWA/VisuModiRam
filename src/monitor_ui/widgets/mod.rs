@@ -125,9 +125,11 @@ impl Widget2 {
 // ----------------------------------------------------------------------------
 //pub trait WidgetApp2: eframe::App {
 pub trait WidgetApp2 {
-    fn fetch_watch_list(&mut self, watch_list: &Vec<crate::debugging_tools::VariableInfo>);
-    // 既にeframe::Appに含まれているため、この行は不要です
+    fn fetch_watch_list(&mut self, watch_list: &Vec<VariableInfo>);
+    
     fn update(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame);
+
+    fn set_probe(&mut self, probe: ProbeInterface2);
 }
 
 // ----------------------------------------------------------------------------
@@ -231,7 +233,11 @@ impl WidgetWindow {
         self.state.monitor_tab.update(ui, frame);
     }
 
-    pub fn show_selected_app(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+    pub fn set_probe_to_app(&mut self, probe: ProbeInterface2){
+        self.state.monitor_tab.set_probe(probe);
+    }
+
+    fn show_selected_app(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         let anchor_to_update = self.state.selected_anchor;
         match anchor_to_update {
             Anchor::MonitorTab => self.update_monitor_tab(ui, frame),
@@ -241,12 +247,19 @@ impl WidgetWindow {
 
     fn bar_contents(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame, cmd: &mut Command) {
         let mut selected_anchor = self.state.selected_anchor;
+        let mut switch_falg = false;
+
         for (name, anchor) in self.apps_iter_mut() {
             if ui
                 .selectable_label(selected_anchor == anchor, name)
                 .clicked()
             {
                 selected_anchor = anchor;
+
+                if selected_anchor == Anchor::MonitorTab{
+                    switch_falg = true;
+                }
+                #[cfg(disable)]
                 if frame.is_web() {
                     ui.ctx()
                         .open_url(egui::OpenUrl::same_tab(format!("#{anchor}")));
@@ -254,6 +267,11 @@ impl WidgetWindow {
             }
         }
         self.state.selected_anchor = selected_anchor;
+
+        if switch_falg{
+            let list = SelectableVariableInfo::pick_selected(&self.state.select_tab.watch_list);
+            self.state.monitor_tab.fetch_watch_list(&list.clone());
+        }
     }
 }
 //impl eframe::App for WidgetWindow {

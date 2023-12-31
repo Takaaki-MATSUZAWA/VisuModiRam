@@ -2,7 +2,7 @@ use eframe::egui;
 use egui_extras::{Column, TableBuilder};
 use std::sync::Arc;
 
-use crate::debugging_tools::VariableInfo;
+use crate::debugging_tools::*;
 
 use super::WidgetApp;
 
@@ -10,6 +10,9 @@ pub struct widgetTest {
     pub name: String,
     pub age: u32,
     watch_list: Option<Arc<Vec<VariableInfo>>>,
+    pub probe: Option<Box<ProbeInterface2>>, // Boxを使用して所有権を保持
+
+    last_data: f64,
 }
 
 impl widgetTest {
@@ -18,11 +21,13 @@ impl widgetTest {
             name,
             age,
             watch_list: None,
+            probe: None,
+            last_data: 0.0,
         }
     }
 }
 
-//#[cfg(disapbe)]
+#[cfg(disapbe)]
 impl eframe::App for widgetTest {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -47,9 +52,28 @@ impl<'a> super::WidgetApp<'a> for widgetTest {
         }
 
         ui.label(format!("Hello '{}', age {}", self.name, self.age));
+
+
+        let res = self.watch_list.as_ref().and_then(|list| list.first());        
+        let mut vname:String = "".to_string();
+        if let Some(valinfo) = res {
+            vname = valinfo.name.clone();
+        }
+        if vname != "".to_string(){
+            let data = if let Some(probe) = &mut self.probe {
+                probe.get_newest_date(vname.clone())
+            } else {
+                None
+            };
+            if let Some(val) = data{
+                self.last_data = val;
+            }
+
+            ui.label(format!("{} data --> {:?}", vname.clone(), self.last_data));
+        }
     }
 
-    fn fetch_watch_list(&mut self, watch_list: &Vec<crate::debugging_tools::VariableInfo>) {
+    fn fetch_watch_list(&mut self, watch_list: &Vec<VariableInfo>) {
         self.watch_list = Some(Arc::new(watch_list.clone()));
     }
 }
@@ -85,5 +109,9 @@ impl super::WidgetApp2 for widgetTest {
 
     fn fetch_watch_list(&mut self, watch_list: &Vec<crate::debugging_tools::VariableInfo>) {
         self.watch_list = Some(Arc::new(watch_list.clone()));
+    }
+
+    fn set_probe(&mut self, probe: ProbeInterface2) {
+        self.probe = Some(Box::new(probe.clone()));
     }
 }

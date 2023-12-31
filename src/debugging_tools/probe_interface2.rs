@@ -16,6 +16,7 @@ pub struct CoreHolder {
     core_session: Option<Arc<Mutex<Core<'static>>>>,
 }
 
+#[derive(Clone)]
 pub struct ProbeInterface2 {
     pub setting: WatchSetting,
     //session: Arc<Mutex<Option<Session>>>,
@@ -153,10 +154,12 @@ impl ProbeInterface2 {
                         std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
                     })?;
 
+                    let val = f32::from_bits(val);
+
                     _log_service
                         .lock()
                         .unwrap()
-                        .store_measurement(None, &val_name.to_string(), &format!("{}", val))
+                        .store_measurement(None, &val_name.to_string(), &format!("{:?}", val as f32))
                         .unwrap();
                 }
                 std::thread::sleep(duration);
@@ -171,6 +174,39 @@ impl ProbeInterface2 {
 
     pub fn get_data(&mut self) -> i32 {
         *self.temp_data.lock().unwrap()
+    }
+
+    pub fn get_newest_date(&mut self, index: String) -> Option<f64>{
+        let now = sensorlog::time::get_unix_microseconds().expect("get time error");
+        let time_ago = now - (1000000);
+        let mut measurements = self
+            .log_service
+            .lock()
+            .unwrap()
+            .fetch_measurements(index.as_str(), None, Some(time_ago), None)
+            .expect("log service load error");
+
+        let mut resval = None;
+        let mut none_cnt = 0;
+        loop{
+            let res = measurements.last();
+            if let Some(val) = res{
+                let res = val.data.parse::<f32>();
+                match res {
+                    Ok(val) => resval = Some(val as f64),
+                    Err(_) => resval = None,
+                }
+            }else{
+                resval = None;
+            }
+
+            measurements.pop();
+            if resval != None || none_cnt > 100{
+                break;
+            }
+            none_cnt += 1;
+        }
+        resval
     }
 
     pub fn get_log_vec(&mut self) -> Vec<[f64; 2]> {

@@ -57,7 +57,7 @@ impl eframe::App for MainMonitorTab {
 
                 if ui.button("add window").clicked() {
                     self.window_cnt += 1;
-                    let widget_window = WidgetWindow::new(
+                    let mut widget_window = WidgetWindow::new(
                         self.window_cnt,
                         format!("window {}", self.window_cnt),
                         Box::new(widgetTest::new(
@@ -65,6 +65,7 @@ impl eframe::App for MainMonitorTab {
                             self.window_cnt * 10,
                         )),
                     );
+                    widget_window.set_probe_to_app(self.probe_if.clone());
                     self.widgets.push(Box::new(widget_window));
                     add_flag = true;
                 }
