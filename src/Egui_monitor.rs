@@ -10,7 +10,7 @@ pub struct STM32EguiMonitor {
     symbol_serch_ui: SymbolSearch,
     probe_if_test_ui: ProbeIfTest,
     graph_test_ui: GraphTest,
-    widgets: Vec<monitor_ui::Widget<'static>>,
+    //widgets: Vec<monitor_ui::Widget<'static>>,
     watch_list: Vec<VariableInfo>,
 
     window_cnt: u32,
@@ -25,32 +25,32 @@ impl Default for STM32EguiMonitor {
             probe_if_test_ui: ProbeIfTest::new(),
             graph_test_ui: GraphTest::new(),
             watch_list: Vec::new(),
-            widgets: Vec::new(),
+            //widgets: Vec::new(),
             /*
             widgets: vec![
-                Widget::new(0, "test 0".to_string(), Box::new(widgetTest::new("aaa".to_string(), 42, self.watch_list))),
-                Widget::new(1, "test 1".to_string(), Box::new(widgetTest{name: "bbb".to_string(), age:12}))
+                Widget::new(0, "test 0".to_string(), Box::new(WidgetTest::new("aaa".to_string(), 42, self.watch_list))),
+                Widget::new(1, "test 1".to_string(), Box::new(WidgetTest{name: "bbb".to_string(), age:12}))
             ],
              */
             window_cnt: 3,
         };
-        se.setup();
+        //se.setup();
         se
     }
 }
 
 impl STM32EguiMonitor {
-    //#[cfg(disabke)]
+    #[cfg(disabke)]
     fn setup(&mut self) -> &mut Self {
         self.widgets.push(Widget::new(
             0,
             "test 0".to_string(),
-            Box::new(widgetTest::new("aaa".to_string(), 42)),
+            Box::new(WidgetTest::new("aaa".to_string(), 42)),
         ));
         self.widgets.push(Widget::new(
             1,
             "test 1".to_string(),
-            Box::new(widgetTest::new("bbb bbb ".to_string(), 12)),
+            Box::new(WidgetTest::new("bbb bbb ".to_string(), 12)),
         ));
 
         self
@@ -60,19 +60,20 @@ impl STM32EguiMonitor {
 impl eframe::App for STM32EguiMonitor {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         ctx.request_repaint();
-
+        #[cfg(disable)]
         for w in self.widgets.iter_mut() {
             w.set_watch_list_ptr(&self.watch_list);
         }
 
         egui::SidePanel::left("setting").show(ctx, |ui| {
             // add window test
+            #[cfg(disable)]
             if ui.button("add window").clicked() {
                 self.window_cnt += 1;
                 self.widgets.push(Widget::new(
                     self.window_cnt,
                     format!("add window {}", self.window_cnt).to_string(),
-                    Box::new(widgetTest::new(
+                    Box::new(WidgetTest::new(
                         "bbb bbb ".to_string(),
                         self.window_cnt * 10,
                     )),
@@ -111,6 +112,7 @@ impl eframe::App for STM32EguiMonitor {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Centor Panel");
             // multi widget app test
+            #[cfg(disable)]
             for wgt in self.widgets.iter_mut() {
                 wgt.ui(ctx, ui);
             }

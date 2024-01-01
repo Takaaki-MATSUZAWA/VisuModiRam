@@ -1,134 +1,41 @@
 mod graph_test;
 mod probe_if_test;
-
-use std::vec;
+mod widget_test;
+mod graph_monitor;
 
 pub use graph_test::GraphTest;
 pub use probe_if_test::ProbeIfTest;
-
-mod widget_test;
-pub use widget_test::widgetTest;
+pub use widget_test::WidgetTest;
+pub use graph_monitor::GraphMonitor;
 // ----------------------------------------------------------------------------
-use eframe::{
-    egui::{self, Color32, Pos2, Rect, Vec2},
-    App,
-};
+use eframe::egui::{self, Pos2, Rect, Vec2};
 use egui_extras::{Column, TableBuilder};
 use std::sync::Arc;
 
 use crate::debugging_tools::*;
-
-//use super::symbol_search::SelectableVariableInfo;
-
-pub struct Widget<'a> {
-    pub id: u32,
-    pub name: String,
-    watch_list: Option<Arc<Vec<VariableInfo>>>,
-    pub wiget_ui: Box<dyn WidgetApp<'a>>,
-}
-
-impl<'a> Widget<'a> {
-    pub fn new(id: u32, name: String, wiget_ui: Box<dyn WidgetApp<'a>>) -> Self {
-        Self {
-            id,
-            name,
-            watch_list: None,
-            wiget_ui,
-        }
-    }
-
-    pub fn set_watch_list_ptr(&mut self, watch_list_ptr: &Vec<VariableInfo>) {
-        self.watch_list = Some(Arc::new(watch_list_ptr.clone()));
-    }
-
-    pub fn ui(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
-        let mut _in_watch_list = Vec::new();
-
-        if let Some(watch_list) = &mut self.watch_list {
-            self.wiget_ui.fetch_watch_list(watch_list);
-
-            for val in watch_list.iter() {
-                _in_watch_list.push(val);
-            }
-        }
-
-        egui::Window::new(&self.name).show(ctx, |ui| {
-            self.wiget_ui.ui(ui);
-
-            ui.separator();
-            TableBuilder::new(ui)
-                .striped(true)
-                .resizable(true)
-                .vscroll(true)
-                .column(Column::auto().resizable(true))
-                .column(Column::auto().resizable(true))
-                .header(20.0, |mut header| {
-                    header.col(|ui| {
-                        ui.heading("Address");
-                        ui.set_width(80.0);
-                    });
-                    header.col(|ui| {
-                        ui.heading("Symbol");
-                    });
-                })
-                .body(|mut body| {
-                    for vals in &_in_watch_list {
-                        body.row(18.0, |mut row| {
-                            row.col(|ui| {
-                                ui.label(&vals.address);
-                            });
-                            row.col(|ui| {
-                                ui.label(&vals.name);
-                            });
-                        });
-                    }
-                });
-        });
-    }
-}
-
-//pub trait WidgetApp<'a>: eframe::App {
-pub trait WidgetApp<'a> {
-    fn ui(&mut self, ui: &mut egui::Ui);
-    fn fetch_watch_list(&mut self, watch_list: &Vec<crate::debugging_tools::VariableInfo>);
-}
-
-#[cfg(disable)]
-impl<'a> eframe::App for dyn WidgetApp<'a> {
-    fn update(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            self.ui(ui);
-        });
-    }
-}
-
 // ----------------------------------------------------------------------------
-
-pub struct Widget2 {
-    pub id: u32,
-    pub name: String,
-    watch_list: Option<Arc<Vec<VariableInfo>>>,
-    pub wiget_ui: Box<dyn WidgetApp2>,
+#[derive(Default)]
+pub struct MCUinterface {
+    watch_list: Vec<VariableInfo>,
+    probe: Option<Box<ProbeInterface2>>, // Boxを使用して所有権を保持
 }
 
-impl Widget2 {
-    pub fn new(id: u32, name: String, wiget_ui: Box<dyn WidgetApp2>) -> Self {
-        Self {
-            id,
-            name,
-            watch_list: None,
-            wiget_ui,
-        }
+impl MCUinterface {
+    fn fetch_watch_list(&mut self, watch_list: &Vec<crate::debugging_tools::VariableInfo>) {
+        self.watch_list = watch_list.clone();
+    }
+
+    fn set_probe(&mut self, probe: ProbeInterface2) {
+        self.probe = Some(Box::new(probe.clone()));
     }
 }
-
 // ----------------------------------------------------------------------------
-//pub trait WidgetApp2: eframe::App {
-pub trait WidgetApp2 {
-    fn fetch_watch_list(&mut self, watch_list: &Vec<VariableInfo>);
-    
+//pub trait WidgetApp: eframe::App {
+pub trait WidgetApp {
     fn update(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame);
 
+    // for MCUinterface wapper
+    fn fetch_watch_list(&mut self, watch_list: &Vec<VariableInfo>);
     fn set_probe(&mut self, probe: ProbeInterface2);
 }
 
@@ -160,24 +67,16 @@ impl Default for Anchor {
 
 // ----------------------------------------------------------------------------
 
-#[derive(Clone, Copy, Debug)]
-#[must_use]
-enum Command {
-    Nothing,
-    ResetEverything,
-}
-// ----------------------------------------------------------------------------
-
 /// The state that we persist (serialize).
 pub struct State {
-    monitor_tab: Box<dyn WidgetApp2>,
+    monitor_tab: Box<dyn WidgetApp>,
     select_tab: WatchSymbolSelectTab,
 
     selected_anchor: Anchor,
 }
 
 impl State {
-    pub fn new(wiget_ui: Box<dyn WidgetApp2>) -> Self {
+    pub fn new(wiget_ui: Box<dyn WidgetApp>) -> Self {
         Self {
             select_tab: Default::default(),
             monitor_tab: wiget_ui,
@@ -196,8 +95,8 @@ pub struct WidgetWindow {
 }
 //#[cfg(disable)]
 impl WidgetWindow {
-    //pub fn new(cc: &eframe::CreationContext<'_>, wiget_ui: Box<dyn WidgetApp2>) -> Self {
-    pub fn new(id: u32, name: String, wiget_ui: Box<dyn WidgetApp2>) -> Self {
+    //pub fn new(cc: &eframe::CreationContext<'_>, wiget_ui: Box<dyn WidgetApp>) -> Self {
+    pub fn new(id: u32, name: String, wiget_ui: Box<dyn WidgetApp>) -> Self {
         #[allow(unused_mut)]
         let mut slf = Self {
             id,
@@ -233,7 +132,7 @@ impl WidgetWindow {
         self.state.monitor_tab.update(ui, frame);
     }
 
-    pub fn set_probe_to_app(&mut self, probe: ProbeInterface2){
+    pub fn set_probe_to_app(&mut self, probe: ProbeInterface2) {
         self.state.monitor_tab.set_probe(probe);
     }
 
@@ -245,7 +144,7 @@ impl WidgetWindow {
         }
     }
 
-    fn bar_contents(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame, cmd: &mut Command) {
+    fn bar_contents(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let mut selected_anchor = self.state.selected_anchor;
         let mut switch_falg = false;
 
@@ -256,19 +155,14 @@ impl WidgetWindow {
             {
                 selected_anchor = anchor;
 
-                if selected_anchor == Anchor::MonitorTab{
+                if selected_anchor == Anchor::MonitorTab {
                     switch_falg = true;
-                }
-                #[cfg(disable)]
-                if frame.is_web() {
-                    ui.ctx()
-                        .open_url(egui::OpenUrl::same_tab(format!("#{anchor}")));
                 }
             }
         }
         self.state.selected_anchor = selected_anchor;
 
-        if switch_falg{
+        if switch_falg {
             let list = SelectableVariableInfo::pick_selected(&self.state.select_tab.watch_list);
             self.state.monitor_tab.fetch_watch_list(&list.clone());
         }
@@ -290,18 +184,17 @@ impl WidgetWindow {
             wind = wind.current_pos(self.rect.left_top());
             self.pre_name = now_name;
         }
-        let mut res = wind.show(ctx, |ui| {
+        let res = wind.show(ctx, |ui| {
             //#[cfg(disable)]
             #[cfg(not(target_arch = "wasm32"))]
             if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::F11)) {
                 frame.set_fullscreen(!frame.info().window_info.fullscreen);
             }
 
-            let mut cmd = Command::Nothing;
             egui::TopBottomPanel::top(format!("bar_{}", self.id)).show_inside(ui, |ui| {
                 ui.horizontal_wrapped(|ui| {
                     ui.visuals_mut().button_frame = false;
-                    self.bar_contents(ui, frame, &mut cmd);
+                    self.bar_contents(ui, frame);
                 });
             });
 
@@ -309,19 +202,10 @@ impl WidgetWindow {
                 .resizable(false)
                 .min_height(0.0)
                 .show_inside(ui, |ui| {
-                    ui.vertical_centered(|ui| {});
+                    ui.vertical_centered(|_ui| {});
                 });
 
             self.show_selected_app(ui, frame); // ctxをuiに変更
-
-            // On web, the browser controls `pixels_per_point`.
-            #[cfg(disable)]
-            if !frame.is_web() {
-                egui::gui_zoom::zoom_with_keyboard_shortcuts(
-                    ui,
-                    frame.info().native_pixels_per_point,
-                ); // ctxをuiに変更
-            }
         });
 
         if let Some(inner_response) = res {
@@ -343,7 +227,7 @@ pub fn set_value<T: serde::Serialize>(storage: &mut dyn Storage, key: &str, valu
         Err(err) => log::error!("eframe failed to encode data using ron: {}", err),
     }
 }
-
+#[cfg(disable)]
 /// [`Storage`] key used for app
 pub const APP_KEY: &str = "app";
 
@@ -355,7 +239,7 @@ pub struct WatchSymbolSelectTab {
 }
 
 impl WatchSymbolSelectTab {
-    pub fn update(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame, rect: Rect) {
+    pub fn update(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame, rect: Rect) {
         egui::CentralPanel::default().show_inside(ui, |ui| {
             const CHECK_CLM: f32 = 15.;
             const TYPE_CLM: f32 = 100.;

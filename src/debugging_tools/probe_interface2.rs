@@ -159,7 +159,11 @@ impl ProbeInterface2 {
                     _log_service
                         .lock()
                         .unwrap()
-                        .store_measurement(None, &val_name.to_string(), &format!("{:?}", val as f32))
+                        .store_measurement(
+                            None,
+                            &val_name.to_string(),
+                            &format!("{:?}", val as f32),
+                        )
                         .unwrap();
                 }
                 std::thread::sleep(duration);
@@ -176,7 +180,7 @@ impl ProbeInterface2 {
         *self.temp_data.lock().unwrap()
     }
 
-    pub fn get_newest_date(&mut self, index: String) -> Option<f64>{
+    pub fn get_newest_date(&mut self, index: String) -> Option<f64> {
         let now = sensorlog::time::get_unix_microseconds().expect("get time error");
         let time_ago = now - (1000000);
         let mut measurements = self
@@ -188,20 +192,20 @@ impl ProbeInterface2 {
 
         let mut resval = None;
         let mut none_cnt = 0;
-        loop{
+        loop {
             let res = measurements.last();
-            if let Some(val) = res{
+            if let Some(val) = res {
                 let res = val.data.parse::<f32>();
                 match res {
                     Ok(val) => resval = Some(val as f64),
                     Err(_) => resval = None,
                 }
-            }else{
+            } else {
                 resval = None;
             }
 
             measurements.pop();
-            if resval != None || none_cnt > 100{
+            if resval != None || none_cnt > 100 {
                 break;
             }
             none_cnt += 1;
@@ -209,14 +213,14 @@ impl ProbeInterface2 {
         resval
     }
 
-    pub fn get_log_vec(&mut self) -> Vec<[f64; 2]> {
+    pub fn get_log_vec(&mut self, index: String) -> Vec<[f64; 2]> {
         let now = sensorlog::time::get_unix_microseconds().expect("get time error");
         let time_ago = now - (20000000);
         let measurements = self
             .log_service
             .lock()
             .unwrap()
-            .fetch_measurements("temp_data", None, Some(time_ago), None)
+            .fetch_measurements(index.as_str(), None, Some(time_ago), None)
             .expect("log service load error");
 
         let mut vec = Vec::new();

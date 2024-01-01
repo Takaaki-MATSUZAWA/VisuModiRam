@@ -1,7 +1,7 @@
 use eframe::egui::{self, Button, Color32, Label};
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 
-use super::WidgetWindow;
+use super::{WidgetWindow, GraphMonitor};
 
 #[derive(Default)]
 pub struct MainMonitorTab {
@@ -11,7 +11,7 @@ pub struct MainMonitorTab {
     pub probe_if: ProbeInterface2,
 }
 
-use crate::{debugging_tools::ProbeInterface2, monitor_ui::widgetTest};
+use crate::{debugging_tools::ProbeInterface2, monitor_ui::WidgetTest};
 
 impl eframe::App for MainMonitorTab {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
@@ -54,13 +54,13 @@ impl eframe::App for MainMonitorTab {
                 ui.separator();
 
                 let mut add_flag = false;
-
+// ----------------------------------------------------------------------------
                 if ui.button("add window").clicked() {
                     self.window_cnt += 1;
                     let mut widget_window = WidgetWindow::new(
                         self.window_cnt,
                         format!("window {}", self.window_cnt),
-                        Box::new(widgetTest::new(
+                        Box::new(WidgetTest::new(
                             "bbb bbb ".to_string(),
                             self.window_cnt * 10,
                         )),
@@ -69,6 +69,21 @@ impl eframe::App for MainMonitorTab {
                     self.widgets.push(Box::new(widget_window));
                     add_flag = true;
                 }
+// ----------------------------------------------------------------------------
+                if ui.button("add graph").clicked() {
+                    self.window_cnt += 1;
+                    let mut widget_window = WidgetWindow::new(
+                        self.window_cnt,
+                        format!("graph {}", self.window_cnt),
+                        Box::new(GraphMonitor::new(
+                        )),
+                    );
+                    widget_window.set_probe_to_app(self.probe_if.clone());
+                    self.widgets.push(Box::new(widget_window));
+                    add_flag = true;
+                }
+// ----------------------------------------------------------------------------
+
                 if add_flag {
                     for wid in &mut self.widgets {
                         wid.fetch_watch_list(&self.probe_if.setting.watch_list);
