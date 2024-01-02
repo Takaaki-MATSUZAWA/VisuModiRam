@@ -67,7 +67,7 @@ impl super::WidgetApp for WidgetTest {
         self.mcu.fetch_watch_list(watch_list);
     }
 
-    fn set_probe(&mut self, probe: ProbeInterface2) {
+    fn set_probe(&mut self, probe: ProbeInterface) {
         self.mcu.set_probe(probe);
     }
 }

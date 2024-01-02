@@ -1,11 +1,10 @@
-use eframe::egui::{self, Button, Color32};
-use egui_extras::{Column, TableBuilder};
+#[cfg(feature = "persistence")]
+use serde::Deserialize;
 
-use crate::com_resource::ComResource;
-use crate::debugging_tools::{GdbParser, ProbeInterface2, VariableInfo, WatchSetting};
-use crate::monitor_ui::{self, *};
+use crate::monitor_ui::*;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 enum Anchor {
     SettingTab,
     MainMonitorTab,
@@ -41,15 +40,16 @@ enum Command {
 
 /// The state that we persist (serialize).
 #[derive(Default)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(default))]
 pub struct State {
-    setting_tab: SettingTab2,
+    setting_tab: SettingTab,
     main_tab: MainMonitorTab,
 
     selected_anchor: Anchor,
 }
 pub struct LayoutTest {
     state: State,
-    watch_setting: WatchSetting,
 }
 
 impl LayoutTest {
@@ -60,7 +60,6 @@ impl LayoutTest {
         #[allow(unused_mut)]
         let mut slf = Self {
             state: State::default(),
-            watch_setting: Default::default(),
         };
 
         #[cfg(feature = "persistence")]
@@ -75,7 +74,7 @@ impl LayoutTest {
 
     fn apps_iter_mut(&mut self) -> impl Iterator<Item = (&str, Anchor, &mut dyn eframe::App)> {
         #[warn(unused_mut)]
-        let mut vec = vec![
+        let vec = vec![
             (
                 "🔧 Setting",
                 Anchor::SettingTab,
@@ -130,6 +129,13 @@ impl LayoutTest {
             let setting = self.state.setting_tab.get_watch_setting().clone();
             self.state.main_tab.probe_if.set_probe(setting).unwrap();
         }
+
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            if ui.button("Reset All").clicked() {
+                *cmd = Command::ResetEverything;
+                ui.close_menu();
+            }
+        });
     }
 
     fn run_cmd(&mut self, ctx: &egui::Context, cmd: Command) {
@@ -144,7 +150,7 @@ impl LayoutTest {
 }
 
 impl eframe::App for LayoutTest {
-    #[cfg(disable)]
+    #[cfg(feature = "persistence")]
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, &self.state);
     }
@@ -176,8 +182,8 @@ impl eframe::App for LayoutTest {
     }
 }
 
-#[cfg(disable)]
-pub fn set_value<T: serde::Serialize>(storage: &mut dyn Storage, key: &str, value: &T) {
+#[cfg(feature = "ron")]
+pub fn set_value<T: serde::Serialize>(storage: &mut dyn eframe::Storage, key: &str, value: &T) {
     crate::profile_function!(key);
     match ron::ser::to_string(value) {
         Ok(string) => storage.set_string(key, string),
@@ -185,5 +191,6 @@ pub fn set_value<T: serde::Serialize>(storage: &mut dyn Storage, key: &str, valu
     }
 }
 
+#[allow(dead_code)]
 /// [`Storage`] key used for app
 pub const APP_KEY: &str = "app";

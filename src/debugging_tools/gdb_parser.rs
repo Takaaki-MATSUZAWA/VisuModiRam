@@ -18,6 +18,7 @@ use regex::Regex;
 
 // ----------------------------------------------------------------------------
 #[derive(Default, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct SelectableVariableInfo {
     pub name: String,
     pub types: String,
@@ -27,6 +28,7 @@ pub struct SelectableVariableInfo {
 }
 
 #[derive(Clone, Debug)] // Debugを追加
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct VariableInfo {
     pub name: String,
     pub types: String,
@@ -97,6 +99,7 @@ pub struct GdbParser {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum Error {
     IOError(std::io::Error),
     ParseError,

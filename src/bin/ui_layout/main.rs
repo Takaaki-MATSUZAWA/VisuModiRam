@@ -1,7 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-#[path = "../../com_resource.rs"]
-mod com_resource;
 #[path = "../../debugging_tools/mod.rs"]
 mod debugging_tools;
 #[path = "../../monitor_ui/mod.rs"]

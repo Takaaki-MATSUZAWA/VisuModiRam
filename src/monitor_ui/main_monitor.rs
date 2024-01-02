@@ -1,17 +1,19 @@
-use eframe::egui::{self, Button, Color32, Label};
+use eframe::egui::{self, Color32};
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 
-use super::{WidgetWindow, GraphMonitor};
+use super::{GraphMonitor, WidgetWindow};
 
 #[derive(Default)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct MainMonitorTab {
     widgets: Vec<Box<WidgetWindow>>,
     window_cnt: u32,
 
-    pub probe_if: ProbeInterface2,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    pub probe_if: ProbeInterface,
 }
 
-use crate::{debugging_tools::ProbeInterface2, monitor_ui::WidgetTest};
+use crate::{debugging_tools::ProbeInterface, monitor_ui::WidgetTest};
 
 impl eframe::App for MainMonitorTab {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
@@ -54,7 +56,7 @@ impl eframe::App for MainMonitorTab {
                 ui.separator();
 
                 let mut add_flag = false;
-// ----------------------------------------------------------------------------
+                // ----------------------------------------------------------------------------
                 if ui.button("add window").clicked() {
                     self.window_cnt += 1;
                     let mut widget_window = WidgetWindow::new(
@@ -69,20 +71,19 @@ impl eframe::App for MainMonitorTab {
                     self.widgets.push(Box::new(widget_window));
                     add_flag = true;
                 }
-// ----------------------------------------------------------------------------
+                // ----------------------------------------------------------------------------
                 if ui.button("add graph").clicked() {
                     self.window_cnt += 1;
                     let mut widget_window = WidgetWindow::new(
                         self.window_cnt,
                         format!("graph {}", self.window_cnt),
-                        Box::new(GraphMonitor::new(
-                        )),
+                        Box::new(GraphMonitor::new()),
                     );
                     widget_window.set_probe_to_app(self.probe_if.clone());
                     self.widgets.push(Box::new(widget_window));
                     add_flag = true;
                 }
-// ----------------------------------------------------------------------------
+                // ----------------------------------------------------------------------------
 
                 if add_flag {
                     for wid in &mut self.widgets {

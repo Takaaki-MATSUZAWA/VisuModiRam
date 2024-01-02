@@ -1,23 +1,18 @@
-mod graph_test;
-mod probe_if_test;
-mod widget_test;
 mod graph_monitor;
+mod widget_test;
 
-pub use graph_test::GraphTest;
-pub use probe_if_test::ProbeIfTest;
-pub use widget_test::WidgetTest;
 pub use graph_monitor::GraphMonitor;
+pub use widget_test::WidgetTest;
 // ----------------------------------------------------------------------------
 use eframe::egui::{self, Pos2, Rect, Vec2};
 use egui_extras::{Column, TableBuilder};
-use std::sync::Arc;
 
 use crate::debugging_tools::*;
 // ----------------------------------------------------------------------------
 #[derive(Default)]
 pub struct MCUinterface {
     watch_list: Vec<VariableInfo>,
-    probe: Option<Box<ProbeInterface2>>, // Boxを使用して所有権を保持
+    probe: Option<Box<ProbeInterface>>, // Boxを使用して所有権を保持
 }
 
 impl MCUinterface {
@@ -25,7 +20,7 @@ impl MCUinterface {
         self.watch_list = watch_list.clone();
     }
 
-    fn set_probe(&mut self, probe: ProbeInterface2) {
+    fn set_probe(&mut self, probe: ProbeInterface) {
         self.probe = Some(Box::new(probe.clone()));
     }
 }
@@ -36,12 +31,13 @@ pub trait WidgetApp {
 
     // for MCUinterface wapper
     fn fetch_watch_list(&mut self, watch_list: &Vec<VariableInfo>);
-    fn set_probe(&mut self, probe: ProbeInterface2);
+    fn set_probe(&mut self, probe: ProbeInterface);
 }
 
 // ----------------------------------------------------------------------------
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 enum Anchor {
     MonitorTab,
     SymbolPickupTab,
@@ -68,23 +64,39 @@ impl Default for Anchor {
 // ----------------------------------------------------------------------------
 
 /// The state that we persist (serialize).
+/// #[derive(Default)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(default))]
 pub struct State {
+    #[cfg_attr(feature = "serde", serde(skip))]
     monitor_tab: Box<dyn WidgetApp>,
     select_tab: WatchSymbolSelectTab,
 
     selected_anchor: Anchor,
 }
 
-impl State {
-    pub fn new(wiget_ui: Box<dyn WidgetApp>) -> Self {
+//#[cfg(disable)]
+impl Default for State {
+    fn default() -> Self {
         Self {
+            monitor_tab: Box::<GraphMonitor>::default(),
             select_tab: Default::default(),
-            monitor_tab: wiget_ui,
             selected_anchor: Default::default(),
         }
     }
 }
 
+impl State {
+    pub fn new(wiget_ui: Box<dyn WidgetApp>) -> Self {
+        Self {
+            monitor_tab: wiget_ui,
+            select_tab: Default::default(),
+            selected_anchor: Default::default(),
+        }
+    }
+}
+
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct WidgetWindow {
     pub name: String,
     pub id: u32,
@@ -106,6 +118,7 @@ impl WidgetWindow {
             rect: Rect::from_min_size(Pos2::new(0.0, 0.0), Vec2::new(0.0, 0.0)),
         };
 
+        #[cfg(disable)]
         #[cfg(feature = "persistence")]
         if let Some(storage) = cc.storage {
             if let Some(state) = eframe::get_value(storage, eframe::APP_KEY) {
@@ -132,7 +145,7 @@ impl WidgetWindow {
         self.state.monitor_tab.update(ui, frame);
     }
 
-    pub fn set_probe_to_app(&mut self, probe: ProbeInterface2) {
+    pub fn set_probe_to_app(&mut self, probe: ProbeInterface) {
         self.state.monitor_tab.set_probe(probe);
     }
 
@@ -233,7 +246,8 @@ pub const APP_KEY: &str = "app";
 
 // ----------------------------------------------------------------------------
 
-#[derive(Default)]
+#[derive(Default, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct WatchSymbolSelectTab {
     pub watch_list: Vec<SelectableVariableInfo>,
 }
