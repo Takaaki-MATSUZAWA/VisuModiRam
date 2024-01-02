@@ -1,7 +1,8 @@
 use eframe::egui::{self, Color32};
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 
-use super::{GraphMonitor, WidgetWindow};
+use super::WidgetWindow;
+use crate::debugging_tools::ProbeInterface;
 
 #[derive(Default)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -9,11 +10,8 @@ pub struct MainMonitorTab {
     widgets: Vec<Box<WidgetWindow>>,
     window_cnt: u32,
 
-    #[cfg_attr(feature = "serde", serde(skip))]
     pub probe_if: ProbeInterface,
 }
-
-use crate::{debugging_tools::ProbeInterface, monitor_ui::WidgetTest};
 
 impl eframe::App for MainMonitorTab {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
@@ -32,6 +30,9 @@ impl eframe::App for MainMonitorTab {
                             ui.label("test test");
 
                             if ui.button("watch start").clicked() {
+                                for wid in &mut self.widgets {
+                                    wid.set_probe_to_app(self.probe_if.clone());
+                                }
                                 self.probe_if
                                     .watching_start(std::time::Duration::from_millis(100));
                             }
@@ -55,40 +56,32 @@ impl eframe::App for MainMonitorTab {
                 ui.heading("monitor app list");
                 ui.separator();
 
-                let mut add_flag = false;
                 // ----------------------------------------------------------------------------
                 if ui.button("add window").clicked() {
                     self.window_cnt += 1;
-                    let mut widget_window = WidgetWindow::new(
+                    let widget_window = WidgetWindow::new(
                         self.window_cnt,
                         format!("window {}", self.window_cnt),
-                        Box::new(WidgetTest::new(
-                            "bbb bbb ".to_string(),
-                            self.window_cnt * 10,
-                        )),
+                        crate::monitor_ui::widgets::WidgetAppKind::WidgetTest,
                     );
-                    widget_window.set_probe_to_app(self.probe_if.clone());
+
                     self.widgets.push(Box::new(widget_window));
-                    add_flag = true;
                 }
                 // ----------------------------------------------------------------------------
                 if ui.button("add graph").clicked() {
                     self.window_cnt += 1;
-                    let mut widget_window = WidgetWindow::new(
+                    let widget_window = WidgetWindow::new(
                         self.window_cnt,
                         format!("graph {}", self.window_cnt),
-                        Box::new(GraphMonitor::new()),
+                        crate::monitor_ui::widgets::WidgetAppKind::GraphMonitor,
                     );
-                    widget_window.set_probe_to_app(self.probe_if.clone());
+                    
                     self.widgets.push(Box::new(widget_window));
-                    add_flag = true;
                 }
                 // ----------------------------------------------------------------------------
 
-                if add_flag {
-                    for wid in &mut self.widgets {
-                        wid.fetch_watch_list(&self.probe_if.setting.watch_list);
-                    }
+                for wid in &mut self.widgets {
+                    wid.fetch_watch_list(&self.probe_if.setting.watch_list);
                 }
 
                 ui.separator();

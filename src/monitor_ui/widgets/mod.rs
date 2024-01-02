@@ -9,9 +9,12 @@ use egui_extras::{Column, TableBuilder};
 
 use crate::debugging_tools::*;
 // ----------------------------------------------------------------------------
-#[derive(Default)]
+#[derive(Default, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct MCUinterface {
     watch_list: Vec<VariableInfo>,
+
+    #[cfg_attr(feature = "serde", serde(skip))]
     probe: Option<Box<ProbeInterface>>, // Boxを使用して所有権を保持
 }
 
@@ -25,8 +28,7 @@ impl MCUinterface {
     }
 }
 // ----------------------------------------------------------------------------
-//pub trait WidgetApp: eframe::App {
-pub trait WidgetApp {
+pub trait WidgetApp: serde_traitobject::Serialize + serde_traitobject::Deserialize {
     fn update(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame);
 
     // for MCUinterface wapper
@@ -34,6 +36,18 @@ pub trait WidgetApp {
     fn set_probe(&mut self, probe: ProbeInterface);
 }
 
+#[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub enum WidgetAppKind {
+    GraphMonitor,
+    WidgetTest,
+}
+
+impl std::fmt::Display for WidgetAppKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
 // ----------------------------------------------------------------------------
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -66,9 +80,10 @@ impl Default for Anchor {
 /// The state that we persist (serialize).
 /// #[derive(Default)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "serde", serde(default))]
+//#[cfg_attr(feature = "serde", serde(default))]
 pub struct State {
-    #[cfg_attr(feature = "serde", serde(skip))]
+    //#[cfg_attr(feature = "serde", serde(skip))]
+    #[serde(with = "serde_traitobject")]
     monitor_tab: Box<dyn WidgetApp>,
     select_tab: WatchSymbolSelectTab,
 
@@ -103,25 +118,31 @@ pub struct WidgetWindow {
     pub rect: Rect,
 
     state: State,
+    kind: WidgetAppKind,
     pre_name: String,
 }
 //#[cfg(disable)]
 impl WidgetWindow {
-    //pub fn new(cc: &eframe::CreationContext<'_>, wiget_ui: Box<dyn WidgetApp>) -> Self {
-    pub fn new(id: u32, name: String, wiget_ui: Box<dyn WidgetApp>) -> Self {
+    pub fn new(id: u32, name: String, kind: WidgetAppKind) -> Self {
+        let widget_ui: Box<dyn WidgetApp> = match kind {
+            WidgetAppKind::GraphMonitor => Box::new(GraphMonitor::default()),
+            WidgetAppKind::WidgetTest => Box::new(WidgetTest::default()),
+        };
+
         #[allow(unused_mut)]
         let mut slf = Self {
             id,
             pre_name: name.clone(),
             name,
-            state: State::new(wiget_ui),
+            state: State::new(widget_ui),
             rect: Rect::from_min_size(Pos2::new(0.0, 0.0), Vec2::new(0.0, 0.0)),
+            kind,
         };
 
         #[cfg(disable)]
         #[cfg(feature = "persistence")]
         if let Some(storage) = cc.storage {
-            if let Some(state) = eframe::get_value(storage, eframe::APP_KEY) {
+            if let Some(state) = eframe::get_value(storage, name.as_str()) {
                 slf.state = state;
             }
         }
@@ -181,6 +202,7 @@ impl WidgetWindow {
         }
     }
 }
+
 //impl eframe::App for WidgetWindow {
 impl WidgetWindow {
     #[cfg(disable)]
@@ -210,6 +232,7 @@ impl WidgetWindow {
                     self.bar_contents(ui, frame);
                 });
             });
+            ui.label(format!("{:?}", self.kind));
 
             egui::TopBottomPanel::bottom(format!("btm_{}", self.id))
                 .resizable(false)
@@ -226,7 +249,9 @@ impl WidgetWindow {
             self.rect = rect;
         }
     }
+}
 
+impl WidgetWindow {
     pub fn fetch_watch_list(&mut self, list: &Vec<VariableInfo>) {
         SelectableVariableInfo::fetch(&list, &mut self.state.select_tab.watch_list);
     }

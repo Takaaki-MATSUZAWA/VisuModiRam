@@ -4,17 +4,10 @@ use egui_plot::{Legend, Line, LineStyle, Plot};
 use super::MCUinterface;
 use crate::debugging_tools::*;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct GraphMonitor {
     mcu: MCUinterface,
-}
-
-impl GraphMonitor {
-    pub fn new() -> Self {
-        Self {
-            mcu: Default::default(),
-        }
-    }
 }
 
 // ----------------------------------------------------------------------------
@@ -26,9 +19,9 @@ impl super::WidgetApp for GraphMonitor {
                 .view_aspect(1.0)
                 .y_axis_width(4);
 
-            if let Some(probe) = &mut self.mcu.probe {
-                plot.show(ui, |plot_ui| {
-                    for val in &mut self.mcu.watch_list.clone() {
+            plot.show(ui, |plot_ui| {
+                for val in &mut self.mcu.watch_list.clone() {
+                    if let Some(probe) = &mut self.mcu.probe {
                         plot_ui.line({
                             let data: Vec<[f64; 2]> = probe
                                 .get_log_vec(val.name.clone())
@@ -43,8 +36,8 @@ impl super::WidgetApp for GraphMonitor {
                                 .name(val.name.clone())
                         });
                     }
-                });
-            }
+                }
+            });
         });
     }
 

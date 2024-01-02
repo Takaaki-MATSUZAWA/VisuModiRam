@@ -4,24 +4,14 @@ use eframe::egui;
 use super::MCUinterface;
 use crate::debugging_tools::*;
 
+#[derive(Default, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct WidgetTest {
     name: String,
     age: u32,
     last_data: f64,
 
     mcu: MCUinterface,
-}
-
-impl WidgetTest {
-    pub fn new(name: String, age: u32) -> Self {
-        Self {
-            name,
-            age,
-            last_data: 0.0,
-
-            mcu: Default::default(),
-        }
-    }
 }
 
 // ----------------------------------------------------------------------------

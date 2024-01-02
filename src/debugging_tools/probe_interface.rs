@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 #[derive(Default, Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct WatchSetting {
     pub target_mcu: String,
     pub probe_sn: String,
@@ -13,10 +14,14 @@ pub struct WatchSetting {
 }
 
 #[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(default))]
 pub struct ProbeInterface {
     pub setting: WatchSetting,
 
+    #[cfg_attr(feature = "serde", serde(skip))]
     watching_flag: Arc<Mutex<bool>>,
+    #[cfg_attr(feature = "serde", serde(skip))]
     log_service: Arc<Mutex<Sensorlog>>,
     log_start_utime: u64,
 }
