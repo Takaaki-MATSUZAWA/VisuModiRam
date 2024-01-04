@@ -1,7 +1,8 @@
 use eframe::egui::{self, Color32};
+use egui::widgets;
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 
-use super::WidgetWindow;
+use super::{WidgetWindow, Anchor};
 use crate::debugging_tools::ProbeInterface;
 
 #[derive(Default)]
@@ -27,11 +28,17 @@ impl eframe::App for MainMonitorTab {
                     .size(Size::exact(1000.))
                     .vertical(|mut strip| {
                         strip.cell(|ui| {
-                            ui.label("test test");
+                            if ui.button("switch to monitor").clicked() {
+                                for wid in &mut self.widgets {
+                                    wid.switch_tab_to(super::widgets::Anchor::MonitorTab);
+                                }
+                            }
 
+                            ui.separator();
                             if ui.button("watch start").clicked() {
                                 for wid in &mut self.widgets {
                                     wid.set_probe_to_app(self.probe_if.clone());
+                                    wid.switch_tab_to(super::widgets::Anchor::MonitorTab);
                                 }
                                 self.probe_if
                                     .watching_start(std::time::Duration::from_millis(100));
@@ -50,7 +57,7 @@ impl eframe::App for MainMonitorTab {
             });
 
         egui::SidePanel::right("widgets")
-            .resizable(true)
+            .resizable(false)
             .default_width(140.0)
             .show(ctx, |ui| {
                 ui.heading("monitor app list");
@@ -87,10 +94,10 @@ impl eframe::App for MainMonitorTab {
                 ui.separator();
                 TableBuilder::new(ui)
                     .striped(true)
-                    .resizable(true)
+                    .resizable(false)
                     .vscroll(true)
-                    .column(Column::initial(120.).resizable(true))
-                    .column(Column::initial(20.).resizable(true))
+                    .column(Column::initial(120.).resizable(false))
+                    .column(Column::initial(20.).resizable(false))
                     .header(9.0, |mut header| {
                         header.col(|ui| {
                             ui.heading("window name");

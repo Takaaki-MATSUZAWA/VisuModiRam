@@ -52,7 +52,7 @@ impl std::fmt::Display for WidgetAppKind {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-enum Anchor {
+pub enum Anchor {
     MonitorTab,
     SymbolPickupTab,
 }
@@ -121,7 +121,8 @@ pub struct WidgetWindow {
     kind: WidgetAppKind,
     pre_name: String,
 }
-//#[cfg(disable)]
+
+// basic ui functions
 impl WidgetWindow {
     pub fn new(id: u32, name: String, kind: WidgetAppKind) -> Self {
         let widget_ui: Box<dyn WidgetApp> = match kind {
@@ -138,18 +139,9 @@ impl WidgetWindow {
             rect: Rect::from_min_size(Pos2::new(0.0, 0.0), Vec2::new(0.0, 0.0)),
             kind,
         };
-
-        #[cfg(disable)]
-        #[cfg(feature = "persistence")]
-        if let Some(storage) = cc.storage {
-            if let Some(state) = eframe::get_value(storage, name.as_str()) {
-                slf.state = state;
-            }
-        }
         slf
     }
 
-    //fn apps_iter_mut(&mut self) -> impl Iterator<Item = (&str, Anchor, &mut dyn eframe::App)> {
     fn apps_iter_mut(&mut self) -> impl Iterator<Item = (&str, Anchor)> {
         let vec = vec![
             ("📈 Monitor", Anchor::MonitorTab),
@@ -166,10 +158,6 @@ impl WidgetWindow {
         self.state.monitor_tab.update(ui, frame);
     }
 
-    pub fn set_probe_to_app(&mut self, probe: ProbeInterface) {
-        self.state.monitor_tab.set_probe(probe);
-    }
-
     fn show_selected_app(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         let anchor_to_update = self.state.selected_anchor;
         match anchor_to_update {
@@ -179,37 +167,26 @@ impl WidgetWindow {
     }
 
     fn bar_contents(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        let mut selected_anchor = self.state.selected_anchor;
-        let mut switch_falg = false;
+        let is_selected = self.state.selected_anchor;
+        let mut new_anchor = None;
 
         for (name, anchor) in self.apps_iter_mut() {
             if ui
-                .selectable_label(selected_anchor == anchor, name)
+                .selectable_label(is_selected == anchor, name)
                 .clicked()
             {
-                selected_anchor = anchor;
-
-                if selected_anchor == Anchor::MonitorTab {
-                    switch_falg = true;
-                }
+                new_anchor = Some(anchor);
             }
         }
-        self.state.selected_anchor = selected_anchor;
 
-        if switch_falg {
-            let list = SelectableVariableInfo::pick_selected(&self.state.select_tab.watch_list);
-            self.state.monitor_tab.fetch_watch_list(&list.clone());
+        if let Some(anchor) = new_anchor {
+            self.switch_tab_to(anchor);
         }
     }
 }
 
-//impl eframe::App for WidgetWindow {
+// update ui function
 impl WidgetWindow {
-    #[cfg(disable)]
-    fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        eframe::set_value(storage, eframe::APP_KEY, &self.state);
-    }
-
     pub fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         let now_name = self.name.clone();
 
@@ -220,7 +197,6 @@ impl WidgetWindow {
             self.pre_name = now_name;
         }
         let res = wind.show(ctx, |ui| {
-            //#[cfg(disable)]
             #[cfg(not(target_arch = "wasm32"))]
             if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::F11)) {
                 frame.set_fullscreen(!frame.info().window_info.fullscreen);
@@ -251,23 +227,25 @@ impl WidgetWindow {
     }
 }
 
+// public functions
 impl WidgetWindow {
     pub fn fetch_watch_list(&mut self, list: &Vec<VariableInfo>) {
         SelectableVariableInfo::fetch(&list, &mut self.state.select_tab.watch_list);
     }
-}
 
-#[cfg(disable)]
-pub fn set_value<T: serde::Serialize>(storage: &mut dyn Storage, key: &str, value: &T) {
-    crate::profile_function!(key);
-    match ron::ser::to_string(value) {
-        Ok(string) => storage.set_string(key, string),
-        Err(err) => log::error!("eframe failed to encode data using ron: {}", err),
+    pub fn set_probe_to_app(&mut self, probe: ProbeInterface) {
+        self.state.monitor_tab.set_probe(probe);
+    }
+
+    pub fn switch_tab_to(&mut self, anchor: Anchor){
+        self.state.selected_anchor = anchor;
+
+        if anchor == Anchor::MonitorTab {
+            let list = SelectableVariableInfo::pick_selected(&self.state.select_tab.watch_list);
+            self.state.monitor_tab.fetch_watch_list(&list.clone());
+        }
     }
 }
-#[cfg(disable)]
-/// [`Storage`] key used for app
-pub const APP_KEY: &str = "app";
 
 // ----------------------------------------------------------------------------
 
