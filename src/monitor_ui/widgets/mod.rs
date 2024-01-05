@@ -208,7 +208,6 @@ impl WidgetWindow {
                     self.bar_contents(ui, frame);
                 });
             });
-            ui.label(format!("{:?}", self.kind));
 
             egui::TopBottomPanel::bottom(format!("btm_{}", self.id))
                 .resizable(false)

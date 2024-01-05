@@ -1,6 +1,4 @@
 #[cfg(feature = "persistence")]
-use serde::Deserialize;
-
 use crate::monitor_ui::*;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

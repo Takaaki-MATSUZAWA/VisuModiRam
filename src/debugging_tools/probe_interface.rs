@@ -66,7 +66,8 @@ impl ProbeInterface {
 
         *flag.lock().unwrap() = true;
 
-        let _log_service = self.log_service.clone();
+        //let _log_service = self.log_service.clone();
+        let _log_service = Arc::clone(&self.log_service);
 
         self.log_start_utime = time::get_unix_microseconds().expect("get time error");
 
@@ -103,28 +104,74 @@ impl ProbeInterface {
                 }
 
                 for symbol in &setting.watch_list {
-                    let val_name = symbol.name.clone();
-                    let address = if symbol.address.starts_with("0x") {
-                        u64::from_str_radix(&symbol.address[2..], 16)
-                    } else {
-                        symbol.address.parse::<u64>()
+                    let bit_width = get_bit_width(&symbol.types);
+                    
+                    let val_str = {
+                        match bit_width {
+                            Some(Symbolbitwidth::BW8)  => {
+                                let val_bits = core.read_word_8(symbol.address).map_err(|e| {std::io::Error::new(std::io::ErrorKind::Other, e.to_string())})?;
+                                if is_unsigned(&symbol.types){
+                                    format!("{}",val_bits)
+                                }else{
+                                    format!("{}",val_bits as i8)
+                                }
+                            },
+                            Some(Symbolbitwidth::BW16)  => {
+                                let mut buff = [0u8; 2];
+                                core.read_8(symbol.address, &mut buff).map_err(|e| {std::io::Error::new(std::io::ErrorKind::Other, e.to_string())})?;
+                                let val_bits = u16::from_le_bytes(buff);
+                                if is_unsigned(&symbol.types){
+                                    format!("{}",val_bits)
+                                }else{
+                                    format!("{}",val_bits as i16)
+                                }
+                            },
+                            Some(Symbolbitwidth::BW32)  => {
+                                let val_bits = core.read_word_32(symbol.address).map_err(|e| {std::io::Error::new(std::io::ErrorKind::Other, e.to_string())})?;
+                                if is_unsigned(&symbol.types){
+                                    format!("{}",val_bits)
+                                }else{
+                                    if symbol.types.contains("float") {
+                                        format!("{:?}",f32::from_bits(val_bits))
+                                    }else{
+                                        format!("{}",val_bits as i32)
+                                    }
+                                }
+                            },
+                            Some(Symbolbitwidth::BW64)  => {
+                                let val_bits = core.read_word_64(symbol.address).map_err(|e| {std::io::Error::new(std::io::ErrorKind::Other, e.to_string())})?;
+                                if is_unsigned(&symbol.types){
+                                    format!("{}",val_bits)
+                                }else{
+                                    if symbol.types.contains("double") {
+                                        format!("{:?}",f64::from_bits(val_bits))
+                                    }else{
+                                        format!("{}",val_bits as i64)
+                                    }
+                                }
+                            },
+                            _ => {
+                                let val_bits = core.read_word_32(symbol.address).map_err(|e| {std::io::Error::new(std::io::ErrorKind::Other, e.to_string())})?;
+                                if is_unsigned(&symbol.types){
+                                    format!("{}",val_bits)
+                                }else{
+                                    if symbol.types.contains("float") {
+                                        format!("{:?}",f32::from_bits(val_bits))
+                                    }else{
+                                        format!("{}",val_bits as i32)
+                                    }
+                                }
+                            },
+                        }
+                    };
+
+                    match _log_service.lock().unwrap().store_measurement(None, &symbol.name, &val_str) {
+                        Ok(_) => {},
+                        Err(e) => {
+                            // ここでエラーを処理します。例えば、それをログに記録します
+                            println!("測定値の保存中にエラーが発生しました: {}", e);
+                        },
                     }
-                    .expect("failed to parse watchlist variable address");
-                    let val = core.read_word_32(address).map_err(|e| {
-                        std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
-                    })?;
-
-                    let val = f32::from_bits(val);
-
-                    _log_service
-                        .lock()
-                        .unwrap()
-                        .store_measurement(
-                            None,
-                            &val_name.to_string(),
-                            &format!("{:?}", val as f32),
-                        )
-                        .unwrap();
                 }
                 std::thread::sleep(duration);
             }
@@ -159,29 +206,6 @@ impl ProbeInterface {
                 return None;
             }
         }
-        /*
-        let mut resval = None;
-        let mut none_cnt = 0;
-        loop {
-            let res = measurements.last();
-            if let Some(val) = res {
-                let res = val.data.parse::<f32>();
-                match res {
-                    Ok(val) => resval = Some(val as f64),
-                    Err(_) => resval = None,
-                }
-            } else {
-                resval = None;
-            }
-
-            measurements.pop();
-            if resval != None || none_cnt > 100 {
-                break;
-            }
-            none_cnt += 1;
-        }
-        resval
-         */
     }
 
     pub fn get_log_vec(&mut self, index: String) -> Vec<[f64; 2]> {
@@ -205,4 +229,40 @@ impl ProbeInterface {
         }
         vec
     }
+}
+
+// ----------------------------------------------------------------------------
+enum Symbolbitwidth {
+    BW8,
+    BW16,
+    BW32,
+    BW64,
+    BW128,
+}
+
+fn get_bit_width(c_type: &str) -> Option<Symbolbitwidth> {
+    let c_type = String::from(c_type);
+    let c_type = c_type.strip_prefix("volatile ").unwrap_or(&c_type);
+    let c_type = c_type.strip_suffix(" [").unwrap_or(c_type);
+    match c_type {
+        "char"                  => Some(Symbolbitwidth::BW8),
+        "unsigned char"         => Some(Symbolbitwidth::BW8),
+        "signed char"           => Some(Symbolbitwidth::BW8),
+        "short"                 => Some(Symbolbitwidth::BW16),
+        "unsigned short"        => Some(Symbolbitwidth::BW16),
+        "int"                   => Some(Symbolbitwidth::BW32),
+        "unsigned int"          => Some(Symbolbitwidth::BW32),
+        "long"                  => Some(Symbolbitwidth::BW32),
+        "unsigned long"         => Some(Symbolbitwidth::BW32),
+        "long long"             => Some(Symbolbitwidth::BW64),
+        "unsigned long long"    => Some(Symbolbitwidth::BW64),
+        "float"                 => Some(Symbolbitwidth::BW32),
+        "double"                => Some(Symbolbitwidth::BW64),
+        "long double"           => Some(Symbolbitwidth::BW128),
+        _ => None,
+    }
+}
+
+fn is_unsigned(c_type: &str) -> bool {
+    c_type.contains("unsigned")
 }

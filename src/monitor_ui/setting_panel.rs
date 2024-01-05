@@ -200,7 +200,7 @@ impl SettingTab {
                                     .on_hover_text("add watch list");
                             });
                             row.col(|ui| {
-                                ui.label(&selected.address);
+                                ui.label(format!("0x{}", selected.address));
                             });
                             row.col(|ui| {
                                 ui.label(&selected.types);
@@ -209,7 +209,7 @@ impl SettingTab {
                                 ui.label(format!("{}", &selected.size));
                             });
                             row.col(|ui| {
-                                ui.label(&selected.name).on_hover_text(&selected.name);
+                                ui.label(&selected.name).on_hover_text(&selected.name).clicked();
                             });
                         });
                     }
@@ -351,7 +351,7 @@ impl SettingTab {
                                 for selected in watch_list {
                                     body.row(20.0, |mut row| {
                                         row.col(|ui| {
-                                            ui.label(&selected.address);
+                                            ui.label(format!("0x{}", selected.address));
                                         });
                                         row.col(|ui| {
                                             ui.label(&selected.types);

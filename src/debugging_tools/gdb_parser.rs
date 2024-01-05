@@ -22,7 +22,7 @@ use regex::Regex;
 pub struct SelectableVariableInfo {
     pub name: String,
     pub types: String,
-    pub address: String,
+    pub address: u64,
     pub size: usize,
     pub is_selected: bool,
 }
@@ -32,7 +32,7 @@ pub struct SelectableVariableInfo {
 pub struct VariableInfo {
     pub name: String,
     pub types: String,
-    pub address: String,
+    pub address: u64,
     pub size: usize,
 }
 // ----------------------------------------------------------------------------
@@ -317,7 +317,7 @@ impl GdbParser {
     }
 
     // 変数名からアドレスを取得する
-    fn get_variable_address(&mut self, symbol_name: &str) -> Result<Option<String>> {
+    fn get_variable_address(&mut self, symbol_name: &str) -> Result<Option<u64>> {
         let cmd = format!("print /x &({})", symbol_name);
 
         let output_vec_str = self.send_cmd_raw(&cmd)?;
@@ -325,13 +325,22 @@ impl GdbParser {
         Ok(address)
     }
 
-    fn extract_variable_address(&mut self, input: Vec<String>) -> Option<String> {
+    fn extract_variable_address(&mut self, input: Vec<String>) -> Option<u64> {
         let re = Regex::new(r#"~"\$[0-9]+ = (0x[0-9a-fA-F]+)\\n"#).unwrap();
 
         for line in input {
             if let Some(caps) = re.captures(&line) {
                 match caps.get(1) {
-                    Some(res) => return Some(res.as_str().to_string()),
+                    Some(res) => {
+                        let address_str = res.as_str().to_string();
+                        let address = if address_str.starts_with("0x") {
+                            u64::from_str_radix(&address_str[2..], 16)
+                        } else {
+                            address_str.parse::<u64>()
+                        }
+                        .expect("failed to parse watchlist variable address");
+                        return Some(address)
+                    },
                     None => continue,
                 }
             }

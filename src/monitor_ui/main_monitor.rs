@@ -1,8 +1,7 @@
 use eframe::egui::{self, Color32};
-use egui::widgets;
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 
-use super::{WidgetWindow, Anchor};
+use super::WidgetWindow;
 use crate::debugging_tools::ProbeInterface;
 
 #[derive(Default)]
@@ -41,7 +40,7 @@ impl eframe::App for MainMonitorTab {
                                     wid.switch_tab_to(super::widgets::Anchor::MonitorTab);
                                 }
                                 self.probe_if
-                                    .watching_start(std::time::Duration::from_millis(100));
+                                    .watching_start(std::time::Duration::from_millis(1));
                             }
 
                             if ui.button("stop").clicked() {
@@ -180,53 +179,5 @@ impl MainMonitorTab {
                     ui.end_row();
                 }
             });
-
-        #[cfg(predicate)]
-        ui.push_id(2, |ui| {
-            let watch_list = self.probe_if.setting.watch_list.clone();
-            let mut to_remove = None;
-
-            TableBuilder::new(ui)
-                .striped(true)
-                .resizable(true)
-                .vscroll(true)
-                .drag_to_scroll(true)
-                .column(Column::initial(120.).resizable(true))
-                .column(Column::initial(160.).resizable(true))
-                .column(Column::initial(290.).at_least(50.0).resizable(true))
-                .column(Column::auto().at_least(30.0).resizable(true))
-                .header(9.0, |mut header| {
-                    header.col(|ui| {
-                        ui.heading("Address");
-                    });
-                    header.col(|ui| {
-                        ui.heading("Type");
-                    });
-                    header.col(|ui| {
-                        ui.heading("Symbol Name");
-                    });
-                    header.col(|_ui| {});
-                })
-                .body(|mut body| {
-                    for selected in watch_list {
-                        body.row(20.0, |mut row| {
-                            row.col(|ui| {
-                                ui.label(&selected.address);
-                            });
-                            row.col(|ui| {
-                                ui.label(&selected.types);
-                            });
-                            row.col(|ui| {
-                                ui.label(&selected.name).on_hover_text(&selected.name);
-                            });
-                            row.col(|ui| {
-                                if ui.button("x").clicked() {
-                                    to_remove = Some(selected.name.clone());
-                                }
-                            });
-                        });
-                    }
-                });
-        });
     }
 }
