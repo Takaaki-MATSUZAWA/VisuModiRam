@@ -40,7 +40,7 @@ impl super::WidgetApp for WidgetTest {
             }
             if vname != "".to_string() {
                 let data = if let Some(probe) = &mut self.mcu.probe {
-                    probe.get_newest_date(vname.clone())
+                    probe.get_newest_date(&vname)
                 } else {
                     None
                 };

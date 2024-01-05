@@ -24,7 +24,7 @@ impl super::WidgetApp for GraphMonitor {
                     if let Some(probe) = &mut self.mcu.probe {
                         plot_ui.line({
                             let data: Vec<[f64; 2]> = probe
-                                .get_log_vec(val.name.clone())
+                                .get_log_vec(&val.name)
                                 .iter()
                                 .enumerate()
                                 .map(|(_i, y)| [y[0], y[1]])
