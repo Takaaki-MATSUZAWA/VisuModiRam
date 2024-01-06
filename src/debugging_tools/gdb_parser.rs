@@ -35,6 +35,30 @@ pub struct VariableInfo {
     pub address: u64,
     pub size: usize,
 }
+
+use std::cmp::Ordering;
+impl PartialEq for VariableInfo {
+    fn eq(&self, other: &Self) -> bool {
+        self.name   == other.name   &&
+        self.types  == other.types  &&
+        self.address== other.address&&
+        self.size   == other.size   
+    }
+}
+
+impl Eq for VariableInfo {}
+
+impl PartialOrd for VariableInfo {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.name.partial_cmp(&other.name)
+    }
+}
+
+impl Ord for VariableInfo {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.name.cmp(&other.name)
+    }
+}
 // ----------------------------------------------------------------------------
 impl SelectableVariableInfo {
     pub fn generate(list: &Vec<VariableInfo>) -> Vec<SelectableVariableInfo> {

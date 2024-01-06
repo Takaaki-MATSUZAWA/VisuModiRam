@@ -8,7 +8,7 @@ use crate::debugging_tools::*;
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct WidgetTest {
     name: String,
-    age: u32,
+    age: f64,
     last_data: f64,
 
     mcu: MCUinterface,
@@ -18,7 +18,6 @@ pub struct WidgetTest {
 impl super::WidgetApp for WidgetTest {
     fn update(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show_inside(ui, |ui| {
-            //self.ui(ui);
             ui.heading("STM32EguiMonitor");
 
             ui.horizontal(|ui| {
@@ -26,9 +25,17 @@ impl super::WidgetApp for WidgetTest {
                 ui.text_edit_singleline(&mut self.name)
                     .labelled_by(name_label.id);
             });
-            ui.add(egui::Slider::new(&mut self.age, 0..=120).text("age"));
+            if ui.add(egui::Slider::new(&mut self.age, -100.0..=100.0).text("age")).changed(){
+                if let Some(probe) = &mut self.mcu.probe {
+                    let res = self.mcu.watch_list.first();
+                    if let Some(valinfo) = res {
+                        probe.insert_wirte_que(valinfo, &self.age.to_string());
+                    }
+                };           
+            };
+
             if ui.button("Click each year").clicked() {
-                self.age += 1;
+                self.age += 1.0;
             }
 
             ui.label(format!("Hello '{}', age {}", self.name, self.age));
