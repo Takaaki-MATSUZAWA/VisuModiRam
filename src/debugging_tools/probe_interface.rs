@@ -168,73 +168,64 @@ impl ProbeInterface {
                 core.write_32(symbol.address, &block_u32).map_err(|e| e.into())
             },
             "float"                 => core.write_word_32(symbol.address, value_str.parse::<f32>().unwrap().to_bits()),
-            "double"                => core.write_word_64(symbol.address, value_str.parse::<f64>().unwrap().to_bits()),
-            //"long double"           => core.write_word_8(symbol.address, value_str.parse::<f64>().unwrap() as u8),
+            "double"|"long double"  => core.write_word_64(symbol.address, value_str.parse::<f64>().unwrap().to_bits()),
             _ => Err(probe_rs::Error::Other(anyhow::anyhow!("Unsupported type"))),
         }
     }
 
-
     fn read_mem(core: &mut Core, symbol: &VariableInfo) -> String{
-        let bit_width = get_bit_width(&symbol.types);
-                    
+        let c_type = symbol.types.as_str();
+        let c_type = c_type.strip_prefix("volatile ").unwrap_or(&c_type);
+        let c_type = c_type.strip_suffix(" [").unwrap_or(c_type);
         let val_str = {
-            match bit_width {
-                Some(Symbolbitwidth::BW8)  => {
+            match c_type {
+                "char" | "signed char"  => {
                     let val_bits = core.read_word_8(symbol.address).map_err(|e| {std::io::Error::new(std::io::ErrorKind::Other, e.to_string())}).unwrap();
-                    if is_unsigned(&symbol.types){
-                        format!("{}",val_bits)
-                    }else{
-                        format!("{}",val_bits as i8)
-                    }
+                    format!("{}",val_bits as i8)
                 },
-                Some(Symbolbitwidth::BW16)  => {
+                "unsigned char"         => {
+                    let val_bits = core.read_word_8(symbol.address).map_err(|e| {std::io::Error::new(std::io::ErrorKind::Other, e.to_string())}).unwrap();
+                    format!("{}",val_bits)
+                },
+                "short"                 => {
                     let mut buff = [0u8; 2];
                     core.read_8(symbol.address, &mut buff).map_err(|e| {std::io::Error::new(std::io::ErrorKind::Other, e.to_string())}).unwrap();
                     let val_bits = u16::from_le_bytes(buff);
-                    if is_unsigned(&symbol.types){
-                        format!("{}",val_bits)
-                    }else{
-                        format!("{}",val_bits as i16)
-                    }
+                    format!("{}",val_bits as i16)
                 },
-                Some(Symbolbitwidth::BW32)  => {
+                "unsigned short"        => {
+                    let mut buff = [0u8; 2];
+                    core.read_8(symbol.address, &mut buff).map_err(|e| {std::io::Error::new(std::io::ErrorKind::Other, e.to_string())}).unwrap();
+                    let val_bits = u16::from_le_bytes(buff);
+                    format!("{}",val_bits)
+                },
+                "int" | "long"          => {
                     let val_bits = core.read_word_32(symbol.address).map_err(|e| {std::io::Error::new(std::io::ErrorKind::Other, e.to_string())}).unwrap();
-                    if is_unsigned(&symbol.types){
-                        format!("{}",val_bits)
-                    }else{
-                        if symbol.types.contains("float") {
-                            format!("{:?}",f32::from_bits(val_bits))
-                        }else{
-                            format!("{}",val_bits as i32)
-                        }
-                    }
+                    format!("{}",val_bits as i32)
                 },
-                Some(Symbolbitwidth::BW64)  => {
+                "unsigned int"|"unsigned long" => {
+                    let val_bits = core.read_word_32(symbol.address).map_err(|e| {std::io::Error::new(std::io::ErrorKind::Other, e.to_string())}).unwrap();
+                    format!("{}",val_bits)
+                },
+                "long long"             => {
                     let val_bits = core.read_word_64(symbol.address).map_err(|e| {std::io::Error::new(std::io::ErrorKind::Other, e.to_string())}).unwrap();
-                    if is_unsigned(&symbol.types){
-                        format!("{}",val_bits)
-                    }else{
-                        if symbol.types.contains("double") {
-                            format!("{:?}",f64::from_bits(val_bits))
-                        }else{
-                            format!("{}",val_bits as i64)
-                        }
-                    }
+                    format!("{}",val_bits as i64)
                 },
-                _ => {
-                    // long double (128bit) unsuported
+                "unsigned long long"    => {
+                    let val_bits = core.read_word_64(symbol.address).map_err(|e| {std::io::Error::new(std::io::ErrorKind::Other, e.to_string())}).unwrap();
+                    format!("{}",val_bits)
+                },
+                "float"                 => {
                     let val_bits = core.read_word_32(symbol.address).map_err(|e| {std::io::Error::new(std::io::ErrorKind::Other, e.to_string())}).unwrap();
-                    if is_unsigned(&symbol.types){
-                        format!("{}",val_bits)
-                    }else{
-                        if symbol.types.contains("float") {
-                            format!("{:?}",f32::from_bits(val_bits))
-                        }else{
-                            format!("{}",val_bits as i32)
-                        }
-                    }
+                    format!("{:?}",f32::from_bits(val_bits))
+
                 },
+                "double" |"long double"=> {
+                    // long double cast to double
+                    let val_bits = core.read_word_64(symbol.address).map_err(|e| {std::io::Error::new(std::io::ErrorKind::Other, e.to_string())}).unwrap();
+                    format!("{:?}",f64::from_bits(val_bits))
+                },
+                _ => format!(""),
             }
         };
         val_str
@@ -298,37 +289,4 @@ impl ProbeInterface {
 }
 
 // ----------------------------------------------------------------------------
-enum Symbolbitwidth {
-    BW8,
-    BW16,
-    BW32,
-    BW64,
-    BW128,
-}
 
-fn get_bit_width(c_type: &str) -> Option<Symbolbitwidth> {
-    let c_type = String::from(c_type);
-    let c_type = c_type.strip_prefix("volatile ").unwrap_or(&c_type);
-    let c_type = c_type.strip_suffix(" [").unwrap_or(c_type);
-    match c_type {
-        "char"                  => Some(Symbolbitwidth::BW8),
-        "unsigned char"         => Some(Symbolbitwidth::BW8),
-        "signed char"           => Some(Symbolbitwidth::BW8),
-        "short"                 => Some(Symbolbitwidth::BW16),
-        "unsigned short"        => Some(Symbolbitwidth::BW16),
-        "int"                   => Some(Symbolbitwidth::BW32),
-        "unsigned int"          => Some(Symbolbitwidth::BW32),
-        "long"                  => Some(Symbolbitwidth::BW32),
-        "unsigned long"         => Some(Symbolbitwidth::BW32),
-        "long long"             => Some(Symbolbitwidth::BW64),
-        "unsigned long long"    => Some(Symbolbitwidth::BW64),
-        "float"                 => Some(Symbolbitwidth::BW32),
-        "double"                => Some(Symbolbitwidth::BW64),
-        "long double"           => Some(Symbolbitwidth::BW128),
-        _ => None,
-    }
-}
-
-fn is_unsigned(c_type: &str) -> bool {
-    c_type.contains("unsigned")
-}

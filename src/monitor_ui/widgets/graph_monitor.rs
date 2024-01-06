@@ -14,10 +14,14 @@ pub struct GraphMonitor {
 impl super::WidgetApp for GraphMonitor {
     fn update(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show_inside(ui, |ui| {
-            let plot = Plot::new("plot_demo")
+            let mut plot = Plot::new("plot_demo")
                 .legend(Legend::default())
                 .view_aspect(1.0)
                 .y_axis_width(4);
+
+            if ui.button("Reset").clicked(){
+                plot = plot.reset();
+            };
 
             plot.show(ui, |plot_ui| {
                 for val in &mut self.mcu.watch_list.clone() {
