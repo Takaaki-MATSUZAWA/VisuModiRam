@@ -2,6 +2,7 @@ use super::gdb_parser::VariableInfo;
 use probe_rs::{MemoryInterface, Permissions, Probe, Core};
 use sensorlog::{logfile_config::LogfileConfig, quota, time, Sensorlog, measure::Measurement};
 use shellexpand;
+use stopwatch::Stopwatch;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::collections::BTreeMap;
@@ -27,6 +28,8 @@ pub struct ProbeInterface {
     log_start_utime: u64,
     #[cfg_attr(feature = "serde", serde(skip))]
     write_que: Arc<Mutex<BTreeMap<VariableInfo, String>>>,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    log_timer: Arc<Mutex<Stopwatch>>,
 }
 
 fn log_service_default() -> Sensorlog {
@@ -49,6 +52,7 @@ impl Default for ProbeInterface {
             log_service: Arc::new(Mutex::new(log_service_default())),
             log_start_utime: 0,
             write_que: Arc::new(Mutex::new(BTreeMap::new())),
+            log_timer: Arc::new(Mutex::new(Stopwatch::new())),
         }
     }
 }
@@ -73,6 +77,9 @@ impl ProbeInterface {
         //let _log_service = self.log_service.clone();
         let _log_service = Arc::clone(&self.log_service);
         let _write_que = Arc::clone(&self.write_que);
+        
+        let _log_timer = Arc::clone(&self.log_timer);
+        _log_timer.lock().unwrap().start();
 
         self.log_start_utime = time::get_unix_microseconds().expect("get time error");
 
@@ -110,8 +117,9 @@ impl ProbeInterface {
 
                 for symbol in &setting.watch_list {
                     let val_str = Self::read_mem(&mut core ,symbol);
+                    let now_time = _log_timer.lock().unwrap().elapsed_ms();
 
-                    match _log_service.lock().unwrap().store_measurement(None, &symbol.name, &val_str) {
+                    match _log_service.lock().unwrap().store_measurement(Some(now_time as u64), &symbol.name, &val_str) {
                         Ok(_) => {},
                         Err(e) => {
                             // ここでエラーを処理します。例えば、それをログに記録します
@@ -233,12 +241,14 @@ impl ProbeInterface {
 
     pub fn watching_stop(&mut self) {
         *self.watching_flag.lock().unwrap() = false;
+        self.log_timer.lock().unwrap().stop();
     }
 
     pub fn get_newest_date(&mut self, index: &str) -> Option<f64> {
-        let now = time::get_unix_microseconds().expect("get time error");
-        let time_ago = now - (1000000);
-        let mut measurements = self.load_data(index, None, Some(time_ago), None);
+        let now_time = self.log_timer.lock().unwrap().elapsed_ms();
+        let last_time = now_time - 2000;
+
+        let mut measurements = self.load_data(index, Some(now_time as u64), Some(last_time as u64), None);
 
         loop {
             let res = measurements.last();
@@ -256,16 +266,18 @@ impl ProbeInterface {
     }
 
     pub fn get_log_vec(&mut self, index: &str) -> Vec<[f64; 2]> {
-        let now = time::get_unix_microseconds().expect("get time error");
-        let time_ago = now - (20000000);
-        let measurements = self.load_data(index, None, Some(time_ago), None);
+        let time_window = 10000;
+
+        let now_time = self.log_timer.lock().unwrap().elapsed_ms();
+        let mut last_time = now_time - time_window;
+        if last_time < 0 {
+            last_time = 0;
+        }
+        let measurements = self.load_data(index, Some(now_time as u64), Some(last_time as u64), None);
 
         let mut vec = Vec::new();
         for measurement in measurements {
-            if measurement.time < self.log_start_utime {
-                continue;
-            }
-            let time = (measurement.time - self.log_start_utime) as f64 / 1000000.0;
+            let time = (measurement.time) as f64 / 1000.0;
             let data = measurement.data.parse::<f64>().unwrap();
             vec.push([time, data]);
         }

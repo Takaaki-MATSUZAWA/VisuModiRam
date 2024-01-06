@@ -29,6 +29,7 @@ use = "0.0.1-pre.0"
 erased-serde = "0.4.1"
 serde_traitobject = "0.2.8"
 anyhow = "1.0.79"
+stopwatch = "0.0.7"
 
 [[bin]]
 name = "main"
