@@ -85,6 +85,28 @@ impl eframe::App for MainMonitorTab {
                     self.widgets.push(Box::new(widget_window));
                 }
                 // ----------------------------------------------------------------------------
+                if ui.button("add table view").clicked() {
+                    self.window_cnt += 1;
+                    let widget_window = WidgetWindow::new(
+                        self.window_cnt,
+                        format!("{}_table_view", self.window_cnt),
+                        Box::new(widgets::TableView::default()),
+                    );
+
+                    self.widgets.push(Box::new(widget_window));
+                }
+                // ----------------------------------------------------------------------------
+                if ui.button("add edit table").clicked() {
+                    self.window_cnt += 1;
+                    let widget_window = WidgetWindow::new(
+                        self.window_cnt,
+                        format!("{}_edit_table", self.window_cnt),
+                        Box::new(widgets::EditTable::default()),
+                    );
+
+                    self.widgets.push(Box::new(widget_window));
+                }
+                // ----------------------------------------------------------------------------
 
                 for wid in &mut self.widgets {
                     wid.fetch_watch_list(&self.probe_if.setting.watch_list);
@@ -110,6 +132,8 @@ impl eframe::App for MainMonitorTab {
                     })
                     .body(|mut body| {
                         let mut to_remove = None;
+                        let widget_names: Vec<_> =
+                            self.widgets.iter().map(|w| w.name.clone()).collect();
 
                         for wid in &mut self.widgets {
                             body.row(15.0, |mut row| {
@@ -118,7 +142,9 @@ impl eframe::App for MainMonitorTab {
                                     let res = ui.text_edit_singleline(&mut text);
 
                                     if res.changed() {
-                                        wid.name = text;
+                                        if !widget_names.contains(&text) {
+                                            wid.name = text;
+                                        }
                                     }
                                     if res.hovered() {
                                         ui.ctx().debug_painter().debug_rect(

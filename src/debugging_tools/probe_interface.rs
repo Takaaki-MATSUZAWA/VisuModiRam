@@ -151,57 +151,88 @@ impl ProbeInterface {
         let c_type = c_type.strip_prefix("volatile ").unwrap_or(&c_type);
         let c_type = c_type.strip_suffix(" [").unwrap_or(c_type);
         match c_type {
-            "signed char" | "char" => core.write_word_8(
-                symbol.address,
-                value_str.parse::<f64>().unwrap() as i8 as u8,
-            ),
-            "unsigned char" => {
-                core.write_word_8(symbol.address, value_str.parse::<f64>().unwrap() as u8)
-            }
-            "short" => {
-                let buf = value_str.parse::<f64>().unwrap() as i16;
-                let block = buf.to_le_bytes();
-                core.write_8(symbol.address, &block).map_err(|e| e.into())
-            }
-            "unsigned short" => {
-                let buf = value_str.parse::<f64>().unwrap() as u16;
-                let block = buf.to_le_bytes();
-                core.write_8(symbol.address, &block).map_err(|e| e.into())
-            }
-            "int" | "long" => core.write_word_32(
-                symbol.address,
-                value_str.parse::<f64>().unwrap() as i32 as u32,
-            ),
-            "unsigned int" | "unsigned long" => core.write_word_32(
-                symbol.address,
-                value_str.parse::<f64>().unwrap() as u32 as u32,
-            ),
-            "long long" => {
-                let buf = value_str.parse::<f64>().unwrap() as i64;
-                let block = buf.to_le_bytes();
-                let block_u32 = [
-                    u32::from_le_bytes([block[0], block[1], block[2], block[3]]),
-                    u32::from_le_bytes([block[4], block[5], block[6], block[7]]),
-                ];
-                core.write_32(symbol.address, &block_u32)
-                    .map_err(|e| e.into())
-            }
-            "unsigned long long" => {
-                let buf = value_str.parse::<f64>().unwrap() as u64;
-                let block = buf.to_le_bytes();
-                let block_u32 = [
-                    u32::from_le_bytes([block[0], block[1], block[2], block[3]]),
-                    u32::from_le_bytes([block[4], block[5], block[6], block[7]]),
-                ];
-                core.write_32(symbol.address, &block_u32)
-                    .map_err(|e| e.into())
-            }
-            "float" => {
-                core.write_word_32(symbol.address, value_str.parse::<f32>().unwrap().to_bits())
-            }
-            "double" | "long double" => {
-                core.write_word_64(symbol.address, value_str.parse::<f64>().unwrap().to_bits())
-            }
+            "signed char" | "char" => match value_str.parse::<i8>() {
+                Ok(val) => core.write_word_8(symbol.address, val as u8),
+                Err(_) => Err(probe_rs::Error::Other(anyhow::anyhow!(
+                    "Parse error for signed char"
+                ))),
+            },
+            "unsigned char" => match value_str.parse::<u8>() {
+                Ok(val) => core.write_word_8(symbol.address, val),
+                Err(_) => Err(probe_rs::Error::Other(anyhow::anyhow!(
+                    "Parse error for unsigned char"
+                ))),
+            },
+            "short" => match value_str.parse::<i16>() {
+                Ok(val) => {
+                    let block = val.to_le_bytes();
+                    core.write_8(symbol.address, &block).map_err(|e| e.into())
+                }
+                Err(_) => Err(probe_rs::Error::Other(anyhow::anyhow!(
+                    "Parse error for short"
+                ))),
+            },
+            "unsigned short" => match value_str.parse::<u16>() {
+                Ok(val) => {
+                    let block = val.to_le_bytes();
+                    core.write_8(symbol.address, &block).map_err(|e| e.into())
+                }
+                Err(_) => Err(probe_rs::Error::Other(anyhow::anyhow!(
+                    "Parse error for unsigned short"
+                ))),
+            },
+            "int" | "long" => match value_str.parse::<i32>() {
+                Ok(val) => core.write_word_32(symbol.address, val as u32),
+                Err(_) => Err(probe_rs::Error::Other(anyhow::anyhow!(
+                    "Parse error for int/long"
+                ))),
+            },
+            "unsigned int" | "unsigned long" => match value_str.parse::<u32>() {
+                Ok(val) => core.write_word_32(symbol.address, val),
+                Err(_) => Err(probe_rs::Error::Other(anyhow::anyhow!(
+                    "Parse error for unsigned int/long"
+                ))),
+            },
+            "long long" => match value_str.parse::<i64>() {
+                Ok(val) => {
+                    let block = val.to_le_bytes();
+                    let block_u32 = [
+                        u32::from_le_bytes([block[0], block[1], block[2], block[3]]),
+                        u32::from_le_bytes([block[4], block[5], block[6], block[7]]),
+                    ];
+                    core.write_32(symbol.address, &block_u32)
+                        .map_err(|e| e.into())
+                }
+                Err(_) => Err(probe_rs::Error::Other(anyhow::anyhow!(
+                    "Parse error for long long"
+                ))),
+            },
+            "unsigned long long" => match value_str.parse::<u64>() {
+                Ok(val) => {
+                    let block = val.to_le_bytes();
+                    let block_u32 = [
+                        u32::from_le_bytes([block[0], block[1], block[2], block[3]]),
+                        u32::from_le_bytes([block[4], block[5], block[6], block[7]]),
+                    ];
+                    core.write_32(symbol.address, &block_u32)
+                        .map_err(|e| e.into())
+                }
+                Err(_) => Err(probe_rs::Error::Other(anyhow::anyhow!(
+                    "Parse error for unsigned long long"
+                ))),
+            },
+            "float" => match value_str.parse::<f32>() {
+                Ok(val) => core.write_word_32(symbol.address, val.to_bits()),
+                Err(_) => Err(probe_rs::Error::Other(anyhow::anyhow!(
+                    "Parse error for float"
+                ))),
+            },
+            "double" | "long double" => match value_str.parse::<f64>() {
+                Ok(val) => core.write_word_64(symbol.address, val.to_bits()),
+                Err(_) => Err(probe_rs::Error::Other(anyhow::anyhow!(
+                    "Parse error for double/long double"
+                ))),
+            },
             _ => Err(probe_rs::Error::Other(anyhow::anyhow!("Unsupported type"))),
         }
     }
@@ -298,23 +329,20 @@ impl ProbeInterface {
 
     pub fn get_newest_date(&mut self, index: &str) -> Option<f64> {
         let now_time = self.log_timer.lock().unwrap().elapsed_ms();
-        let last_time = now_time - 2000;
+        let last_time = now_time - 500;
 
-        let mut measurements =
+        let measurements =
             self.load_data(index, Some(now_time as u64), Some(last_time as u64), None);
 
-        loop {
-            let res = measurements.last();
-            if let Some(val) = res {
-                let res = val.data.parse::<f32>();
-                measurements.pop();
-                match res {
-                    Ok(val) => return Some(val as f64),
-                    Err(_) => continue,
-                }
-            } else {
-                return None;
+        let res = measurements.last();
+        if let Some(val) = res {
+            let res = val.data.parse::<f32>();
+            match res {
+                Ok(val) => return Some(val as f64),
+                Err(_) => return None,
             }
+        } else {
+            return None;
         }
     }
 

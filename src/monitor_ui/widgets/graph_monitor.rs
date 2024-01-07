@@ -1,5 +1,5 @@
 use eframe::egui::{self, Color32};
-use egui_plot::{Legend, Line, LineStyle, Plot};
+use egui_plot::{Corner, Legend, Line, LineStyle, Plot};
 
 use super::MCUinterface;
 use crate::debugging_tools::*;
@@ -15,8 +15,8 @@ impl super::WidgetApp for GraphMonitor {
     fn update(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show_inside(ui, |ui| {
             let mut plot = Plot::new("plot_demo")
-                .legend(Legend::default())
-                .view_aspect(1.0)
+                .legend(Legend::default().position(Corner::LeftTop))
+                //.view_aspect(1.0)
                 .y_axis_width(4);
 
             if ui.button("Reset").clicked() {
@@ -35,7 +35,7 @@ impl super::WidgetApp for GraphMonitor {
                                 .collect();
 
                             Line::new(data)
-                                .color(Color32::from_rgb(200, 100, 100))
+                                //.color(Color32::from_rgb(200, 100, 100))
                                 .style(LineStyle::Solid)
                                 .name(val.name.clone())
                         });

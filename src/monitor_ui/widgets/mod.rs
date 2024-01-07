@@ -1,7 +1,11 @@
+mod edit_table;
 mod graph_monitor;
+mod table_view;
 mod widget_test;
 
+pub use edit_table::EditTable;
 pub use graph_monitor::GraphMonitor;
+pub use table_view::TableView;
 pub use widget_test::WidgetTest;
 // ----------------------------------------------------------------------------
 use eframe::egui::{self, Pos2, Rect, Vec2};
@@ -243,6 +247,18 @@ pub struct WatchSymbolSelectTab {
 
 impl WatchSymbolSelectTab {
     pub fn update(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame, rect: Rect) {
+        ui.horizontal(|ui| {
+            if ui.button("All select").clicked() {
+                self.watch_list.iter_mut().for_each(|symbol| {
+                    symbol.is_selected = true;
+                });
+            }
+            if ui.button("Deselect all").clicked() {
+                self.watch_list.iter_mut().for_each(|symbol| {
+                    symbol.is_selected = false;
+                });
+            }
+        });
         egui::CentralPanel::default().show_inside(ui, |ui| {
             const CHECK_CLM: f32 = 15.;
             const TYPE_CLM: f32 = 100.;

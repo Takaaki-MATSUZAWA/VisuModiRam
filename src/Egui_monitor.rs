@@ -261,6 +261,3 @@ pub fn load_layout<T: serde::de::DeserializeOwned>(load_file: PathBuf) -> Result
         .map_err(|err| format!("Failed to deserialize state: {}", err))?;
     Ok(deserialized)
 }
-
-/// [`Storage`] key used for app
-pub const APP_KEY: &str = "app";
