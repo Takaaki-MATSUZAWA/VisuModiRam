@@ -53,6 +53,8 @@ pub struct STM32EguiMonitor {
 }
 
 use egui_modal::Modal;
+use rfd::FileDialog;
+use std::path::PathBuf;
 
 impl STM32EguiMonitor {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
@@ -140,9 +142,33 @@ impl STM32EguiMonitor {
                 //ui.close_menu();
             }
             ui.separator();
-            if ui.button("Load layout").clicked() {}
+            if ui.button("Load layout").clicked() {
+                if let Some(path) = FileDialog::new()
+                    .add_filter("Layout file", &["ron"])
+                    .pick_file()
+                {
+                    if let Ok(load_data) = self::load_layout(path) {
+                        self.state = load_data;
+                    } else {
+                        println!("faild load layout");
+                    }
+                }
+            }
             ui.separator();
-            if ui.button("Save layout").clicked() {}
+            if ui.button("Save layout").clicked() {
+                if let Some(path) = FileDialog::new()
+                    .set_file_name("monitor_layout")
+                    .add_filter("Layout file", &["ron"])
+                    .save_file()
+                {
+                    println!("{:?}", path);
+                    let mut path_with_extension = path.clone();
+                    if !path.to_str().map_or(false, |s| s.ends_with(".ron")) {
+                        path_with_extension = path.with_extension("ron");
+                    }
+                    self::save_layout(path_with_extension, &self.state);
+                }
+            }
             ui.separator();
         });
 
@@ -221,15 +247,20 @@ impl eframe::App for STM32EguiMonitor {
     }
 }
 
-#[cfg(feature = "ron")]
-pub fn set_value<T: serde::Serialize>(storage: &mut dyn eframe::Storage, key: &str, value: &T) {
-    crate::profile_function!(key);
-    match ron::ser::to_string(value) {
-        Ok(string) => storage.set_string(key, string),
-        Err(err) => log::error!("eframe failed to encode data using ron: {}", err),
-    }
+pub fn save_layout<T: serde::Serialize>(save_file: PathBuf, value: &T) {
+    let serialized = ron::ser::to_string(&value).expect("Failed to serialize state");
+    println!("serialized!!!");
+    std::fs::write(save_file, serialized).expect("Failed to write to file");
+    println!("saved!!!");
 }
 
-#[allow(dead_code)]
+pub fn load_layout<T: serde::de::DeserializeOwned>(load_file: PathBuf) -> Result<T, String> {
+    let serialized_data = std::fs::read_to_string(load_file)
+        .map_err(|err| format!("Failed to read from file: {}", err))?;
+    let deserialized = ron::de::from_str(&serialized_data)
+        .map_err(|err| format!("Failed to deserialize state: {}", err))?;
+    Ok(deserialized)
+}
+
 /// [`Storage`] key used for app
 pub const APP_KEY: &str = "app";

@@ -38,6 +38,7 @@ dependencies = [
  "probe-rs",
  "regex",
  "rfd",
+ "ron",
  "sensorlog",
  "serde",
  "serde_traitobject",

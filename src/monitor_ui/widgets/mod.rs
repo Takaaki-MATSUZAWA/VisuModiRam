@@ -35,19 +35,6 @@ pub trait WidgetApp: serde_traitobject::Serialize + serde_traitobject::Deseriali
     fn fetch_watch_list(&mut self, watch_list: &Vec<VariableInfo>);
     fn set_probe(&mut self, probe: ProbeInterface);
 }
-
-#[derive(Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-pub enum WidgetAppKind {
-    GraphMonitor,
-    WidgetTest,
-}
-
-impl std::fmt::Display for WidgetAppKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{self:?}")
-    }
-}
 // ----------------------------------------------------------------------------
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -118,28 +105,22 @@ pub struct WidgetWindow {
     pub rect: Rect,
 
     state: State,
-    kind: WidgetAppKind,
     pre_name: String,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    first_update_flag_inv: bool,
 }
 
 // basic ui functions
 impl WidgetWindow {
-    pub fn new(id: u32, name: String, kind: WidgetAppKind) -> Self {
-        let widget_ui: Box<dyn WidgetApp> = match kind {
-            WidgetAppKind::GraphMonitor => Box::new(GraphMonitor::default()),
-            WidgetAppKind::WidgetTest => Box::new(WidgetTest::default()),
-        };
-
-        #[allow(unused_mut)]
-        let mut slf = Self {
+    pub fn new(id: u32, name: String, widget_ui: Box<dyn WidgetApp>) -> Self {
+        Self {
             id,
             pre_name: name.clone(),
             name,
             state: State::new(widget_ui),
-            rect: Rect::from_min_size(Pos2::new(0.0, 0.0), Vec2::new(0.0, 0.0)),
-            kind,
-        };
-        slf
+            rect: Rect::from_min_size(Pos2::new(0.0, 0.0), Vec2::new(300.0, 400.0)),
+            first_update_flag_inv: true,
+        }
     }
 
     fn apps_iter_mut(&mut self) -> impl Iterator<Item = (&str, Anchor)> {
@@ -193,6 +174,14 @@ impl WidgetWindow {
             wind = wind.current_pos(self.rect.left_top());
             self.pre_name = now_name;
         }
+
+        if !self.first_update_flag_inv {
+            //println!("{} first update", self.name);
+            wind = wind.current_pos(self.rect.left_top());
+            wind = wind.fixed_size(Vec2::new(self.rect.width(), self.rect.height()));
+            self.first_update_flag_inv = true;
+        }
+
         let res = wind.show(ctx, |ui| {
             #[cfg(not(target_arch = "wasm32"))]
             if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::F11)) {

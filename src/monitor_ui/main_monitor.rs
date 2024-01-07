@@ -1,7 +1,7 @@
 use eframe::egui::{self, Color32};
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 
-use super::WidgetWindow;
+use super::{widgets, WidgetWindow};
 use crate::debugging_tools::ProbeInterface;
 
 #[derive(Default)]
@@ -23,7 +23,7 @@ impl eframe::App for MainMonitorTab {
             .show(ctx, |ui| {
                 ui.heading("watch control");
                 StripBuilder::new(ui)
-                    .size(Size::remainder().at_least(300.0)) // for the table
+                    .size(Size::remainder().at_least(300.0))
                     .size(Size::exact(1000.))
                     .vertical(|mut strip| {
                         strip.cell(|ui| {
@@ -67,8 +67,8 @@ impl eframe::App for MainMonitorTab {
                     self.window_cnt += 1;
                     let widget_window = WidgetWindow::new(
                         self.window_cnt,
-                        format!("window {}", self.window_cnt),
-                        crate::monitor_ui::widgets::WidgetAppKind::WidgetTest,
+                        format!("{}_window", self.window_cnt),
+                        Box::new(widgets::WidgetTest::default()),
                     );
 
                     self.widgets.push(Box::new(widget_window));
@@ -78,8 +78,8 @@ impl eframe::App for MainMonitorTab {
                     self.window_cnt += 1;
                     let widget_window = WidgetWindow::new(
                         self.window_cnt,
-                        format!("graph {}", self.window_cnt),
-                        crate::monitor_ui::widgets::WidgetAppKind::GraphMonitor,
+                        format!("{}_graph", self.window_cnt),
+                        Box::new(widgets::GraphMonitor::default()),
                     );
 
                     self.widgets.push(Box::new(widget_window));
@@ -90,6 +90,10 @@ impl eframe::App for MainMonitorTab {
                     wid.fetch_watch_list(&self.probe_if.setting.watch_list);
                 }
 
+                ui.separator();
+                if ui.button("Organize windows").clicked() {
+                    ui.ctx().memory_mut(|mem| mem.reset_areas());
+                }
                 ui.separator();
                 TableBuilder::new(ui)
                     .striped(true)
