@@ -50,6 +50,8 @@ pub struct LayoutTest {
     state: State,
 }
 
+use egui_modal::Modal;
+
 impl LayoutTest {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         // This gives us image support:
@@ -129,11 +131,38 @@ impl LayoutTest {
         }
 
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if ui.button("Reset All").clicked() {
+            if ui.button("Save layout").clicked() {}
+
+            if ui.button("Loat layout").clicked() {}
+
+            if ui.button("Reset All layout").clicked() {
                 *cmd = Command::ResetEverything;
                 ui.close_menu();
             }
         });
+    }
+
+    fn reset_dialog(&mut self, ctx: &egui::Context) {
+        let modal = Modal::new(ctx, "my_modal");
+
+        // What goes inside the modal
+        modal.show(|ui| {
+            // these helper functions help set the ui based on the modal's
+            // set style, but they are not required and you can put whatever
+            // ui you want inside [`.show()`]
+            modal.title(ui, "Hello world!");
+            modal.frame(ui, |ui| {
+                modal.body(ui, "This is a modal.");
+            });
+            modal.buttons(ui, |ui| {
+                // After clicking, the modal is automatically closed
+                if modal.button(ui, "close").clicked() {
+                    println!("Hello world!")
+                };
+            });
+        });
+
+        modal.open();
     }
 
     fn run_cmd(&mut self, ctx: &egui::Context, cmd: Command) {
@@ -158,7 +187,8 @@ impl eframe::App for LayoutTest {
 
         #[cfg(not(target_arch = "wasm32"))]
         if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::F11)) {
-            frame.set_fullscreen(!frame.info().window_info.fullscreen);
+            let fullscreen = ctx.input(|i| i.viewport().fullscreen.unwrap_or(false));
+            ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(!fullscreen));
         }
 
         let mut cmd = Command::Nothing;
@@ -170,11 +200,6 @@ impl eframe::App for LayoutTest {
         });
 
         self.show_selected_app(ctx, frame);
-
-        // On web, the browser controls `pixels_per_point`.
-        if !frame.is_web() {
-            egui::gui_zoom::zoom_with_keyboard_shortcuts(ctx, frame.info().native_pixels_per_point);
-        }
 
         self.run_cmd(ctx, cmd);
     }

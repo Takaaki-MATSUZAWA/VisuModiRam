@@ -122,7 +122,7 @@ impl SettingTab {
 
                 if self.symbol_search.variable_list.is_empty() {
                     self.symbol_search.variable_list = gdb_parser.load_variable_list();
-                    if !self.symbol_search.variable_list.is_empty(){
+                    if !self.symbol_search.variable_list.is_empty() {
                         SelectableVariableInfo::fetch(
                             &self.symbol_search.variable_list,
                             &mut self.symbol_search.selected_list,

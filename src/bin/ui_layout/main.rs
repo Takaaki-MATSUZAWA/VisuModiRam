@@ -11,8 +11,7 @@ use layout_test_monitor::LayoutTest;
 fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
     let options = eframe::NativeOptions {
-        //initial_window_size: Some(egui::vec2(960.0, 480.0)),
-        initial_window_size: Some([1280.0, 720.0].into()),
+        viewport: egui::ViewportBuilder::default().with_inner_size([1280.0, 720.0]),
         ..Default::default()
     };
     eframe::run_native(

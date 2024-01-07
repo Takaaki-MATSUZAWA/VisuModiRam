@@ -196,7 +196,8 @@ impl WidgetWindow {
         let res = wind.show(ctx, |ui| {
             #[cfg(not(target_arch = "wasm32"))]
             if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::F11)) {
-                frame.set_fullscreen(!frame.info().window_info.fullscreen);
+                let fullscreen = ctx.input(|i| i.viewport().fullscreen.unwrap_or(false));
+                ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(!fullscreen));
             }
 
             egui::TopBottomPanel::top(format!("bar_{}", self.id)).show_inside(ui, |ui| {

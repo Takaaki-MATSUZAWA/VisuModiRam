@@ -48,7 +48,11 @@ pub struct State {
 }
 pub struct STM32EguiMonitor {
     state: State,
+
+    open_dialog: bool,
 }
+
+use egui_modal::Modal;
 
 impl STM32EguiMonitor {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
@@ -58,6 +62,7 @@ impl STM32EguiMonitor {
         #[allow(unused_mut)]
         let mut slf = Self {
             state: State::default(),
+            open_dialog: false,
         };
 
         #[cfg(feature = "persistence")]
@@ -129,11 +134,51 @@ impl STM32EguiMonitor {
         }
 
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if ui.button("Reset All").clicked() {
-                *cmd = Command::ResetEverything;
-                ui.close_menu();
+            if ui.button("Reset All layout").clicked() {
+                self.open_dialog = true;
+                //*cmd = Command::ResetEverything;
+                //ui.close_menu();
             }
+            ui.separator();
+            if ui.button("Load layout").clicked() {}
+            ui.separator();
+            if ui.button("Save layout").clicked() {}
+            ui.separator();
         });
+
+        if self.open_dialog {
+            self.reset_dialog_ui(ui.ctx(), cmd);
+        }
+    }
+
+    fn reset_dialog_ui(&mut self, ctx: &egui::Context, cmd: &mut Command) {
+        let modal = Modal::new(ctx, "reset_dialog");
+
+        // What goes inside the modal
+        modal.show(|ui| {
+            // these helper functions help set the ui based on the modal's
+            // set style, but they are not required and you can put whatever
+            // ui you want inside [`.show()`]
+            modal.title(ui, "Warning!");
+            modal.frame(ui, |ui| {
+                modal.body(
+                    ui,
+                    "Are you sure you want to RESET ALL layouts, elf file paths and watchlists?",
+                );
+            });
+            modal.buttons(ui, |ui| {
+                if modal.button(ui, "cancel").clicked() {
+                    self.open_dialog = false;
+                };
+                if modal.button(ui, "All Reset").clicked() {
+                    *cmd = Command::ResetEverything;
+                    ui.close_menu();
+                    self.open_dialog = false;
+                };
+            });
+        });
+
+        modal.open();
     }
 
     fn run_cmd(&mut self, ctx: &egui::Context, cmd: Command) {
@@ -158,7 +203,8 @@ impl eframe::App for STM32EguiMonitor {
 
         #[cfg(not(target_arch = "wasm32"))]
         if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::F11)) {
-            frame.set_fullscreen(!frame.info().window_info.fullscreen);
+            let fullscreen = ctx.input(|i| i.viewport().fullscreen.unwrap_or(false));
+            ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(!fullscreen));
         }
 
         let mut cmd = Command::Nothing;
@@ -170,11 +216,6 @@ impl eframe::App for STM32EguiMonitor {
         });
 
         self.show_selected_app(ctx, frame);
-
-        // On web, the browser controls `pixels_per_point`.
-        if !frame.is_web() {
-            egui::gui_zoom::zoom_with_keyboard_shortcuts(ctx, frame.info().native_pixels_per_point);
-        }
 
         self.run_cmd(ctx, cmd);
     }

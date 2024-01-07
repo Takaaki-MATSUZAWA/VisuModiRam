@@ -10,18 +10,18 @@ default = ["persistence"]
 persistence = ["eframe/persistence", "egui/persistence", "serde"]
 
 [dependencies]
-eframe = { version = "0.23.0" }
+eframe = { version = "0.24.1" }
 probe-rs = "0.21.1"
 env_logger = "0.10"
 regex = {version = "1.10.2"}
 serde = { version = "1", optional = true, features = ["derive"] }
-egui = { version = "0.23.0", features = [
+egui = { version = "0.24.1", features = [
   "callstack",
   "extra_debug_asserts",
   "log",
 ] }
-egui_extras = { version = "0.23.0", features = ["all_loaders"] }
-egui_plot = { version = "0.23.0" }
+egui_extras = { version = "0.24.1", features = ["all_loaders"] }
+egui_plot = { version = "0.24.1" }
 shellexpand = "2.1"
 sensorlog = "1.0.0"
 rfd = "0.12.1"
@@ -30,6 +30,7 @@ erased-serde = "0.4.1"
 serde_traitobject = "0.2.8"
 anyhow = "1.0.79"
 stopwatch = "0.0.7"
+egui-modal = "0.3.1"
 
 [[bin]]
 name = "main"
