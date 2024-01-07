@@ -122,9 +122,12 @@ impl SettingTab {
 
                 if self.symbol_search.variable_list.is_empty() {
                     self.symbol_search.variable_list = gdb_parser.load_variable_list();
-
-                    self.symbol_search.selected_list =
-                        SelectableVariableInfo::generate(&self.symbol_search.variable_list);
+                    if !self.symbol_search.variable_list.is_empty(){
+                        SelectableVariableInfo::fetch(
+                            &self.symbol_search.variable_list,
+                            &mut self.symbol_search.selected_list,
+                        );
+                    }
                 }
             }
         }
@@ -209,7 +212,16 @@ impl SettingTab {
                                 ui.label(format!("{}", &selected.size));
                             });
                             row.col(|ui| {
-                                ui.label(&selected.name).on_hover_text(&selected.name).clicked();
+                                if ui
+                                    .add(
+                                        egui::Label::new(&selected.name)
+                                            .sense(egui::Sense::click()),
+                                    )
+                                    .on_hover_text(&selected.name)
+                                    .clicked()
+                                {
+                                    selected.is_selected = !selected.is_selected;
+                                }
                             });
                         });
                     }

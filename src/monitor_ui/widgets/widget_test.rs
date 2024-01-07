@@ -25,13 +25,16 @@ impl super::WidgetApp for WidgetTest {
                 ui.text_edit_singleline(&mut self.name)
                     .labelled_by(name_label.id);
             });
-            if ui.add(egui::Slider::new(&mut self.age, -100.0..=100.0).text("age")).changed(){
+            if ui
+                .add(egui::Slider::new(&mut self.age, -100.0..=100.0).text("age"))
+                .changed()
+            {
                 if let Some(probe) = &mut self.mcu.probe {
                     let res = self.mcu.watch_list.first();
                     if let Some(valinfo) = res {
                         probe.insert_wirte_que(valinfo, &self.age.to_string());
                     }
-                };           
+                };
             };
 
             if ui.button("Click each year").clicked() {

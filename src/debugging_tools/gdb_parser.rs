@@ -39,10 +39,10 @@ pub struct VariableInfo {
 use std::cmp::Ordering;
 impl PartialEq for VariableInfo {
     fn eq(&self, other: &Self) -> bool {
-        self.name   == other.name   &&
-        self.types  == other.types  &&
-        self.address== other.address&&
-        self.size   == other.size   
+        self.name == other.name
+            && self.types == other.types
+            && self.address == other.address
+            && self.size == other.size
     }
 }
 
@@ -77,23 +77,19 @@ impl SelectableVariableInfo {
     }
 
     pub fn fetch(src: &Vec<VariableInfo>, dist: &mut Vec<SelectableVariableInfo>) {
-        let new_list: Vec<SelectableVariableInfo> = src
-            .iter()
-            .map(|vals| SelectableVariableInfo {
-                name: vals.name.clone(),
-                types: vals.types.clone(),
-                address: vals.address.clone(),
-                size: vals.size,
-                is_selected: false,
-            })
-            .collect();
+        let mut new_list = Self::generate(src);
+        let checked_list = Self::pick_selected(&dist);
 
-        dist.retain(|item| new_list.iter().any(|new_item| new_item.name == item.name));
-        for new_item in new_list {
-            if !dist.iter().any(|item| item.name == new_item.name) {
-                dist.push(new_item);
+        for new_item in &mut new_list {
+            if checked_list
+                .iter()
+                .any(|checked_item| checked_item.name == new_item.name)
+            {
+                new_item.is_selected = true;
             }
         }
+        dist.clear();
+        dist.extend(new_list);
     }
 
     pub fn pick_selected(list: &Vec<SelectableVariableInfo>) -> Vec<VariableInfo> {
@@ -363,8 +359,8 @@ impl GdbParser {
                             address_str.parse::<u64>()
                         }
                         .expect("failed to parse watchlist variable address");
-                        return Some(address)
-                    },
+                        return Some(address);
+                    }
                     None => continue,
                 }
             }

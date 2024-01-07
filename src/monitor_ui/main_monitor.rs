@@ -81,7 +81,7 @@ impl eframe::App for MainMonitorTab {
                         format!("graph {}", self.window_cnt),
                         crate::monitor_ui::widgets::WidgetAppKind::GraphMonitor,
                     );
-                    
+
                     self.widgets.push(Box::new(widget_window));
                 }
                 // ----------------------------------------------------------------------------

@@ -1,11 +1,11 @@
 use super::gdb_parser::VariableInfo;
-use probe_rs::{MemoryInterface, Permissions, Probe, Core};
-use sensorlog::{logfile_config::LogfileConfig, quota, time, Sensorlog, measure::Measurement};
+use probe_rs::{Core, MemoryInterface, Permissions, Probe};
+use sensorlog::{logfile_config::LogfileConfig, measure::Measurement, quota, time, Sensorlog};
 use shellexpand;
-use stopwatch::Stopwatch;
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use std::collections::BTreeMap;
+use stopwatch::Stopwatch;
 
 #[derive(Default, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -77,7 +77,7 @@ impl ProbeInterface {
         //let _log_service = self.log_service.clone();
         let _log_service = Arc::clone(&self.log_service);
         let _write_que = Arc::clone(&self.write_que);
-        
+
         let _log_timer = Arc::clone(&self.log_timer);
         _log_timer.lock().unwrap().start();
 
@@ -116,15 +116,19 @@ impl ProbeInterface {
                 }
 
                 for symbol in &setting.watch_list {
-                    let val_str = Self::read_mem(&mut core ,symbol);
+                    let val_str = Self::read_mem(&mut core, symbol);
                     let now_time = _log_timer.lock().unwrap().elapsed_ms();
 
-                    match _log_service.lock().unwrap().store_measurement(Some(now_time as u64), &symbol.name, &val_str) {
-                        Ok(_) => {},
+                    match _log_service.lock().unwrap().store_measurement(
+                        Some(now_time as u64),
+                        &symbol.name,
+                        &val_str,
+                    ) {
+                        Ok(_) => {}
                         Err(e) => {
                             // ここでエラーを処理します。例えば、それをログに記録します
                             println!("測定値の保存中にエラーが発生しました: {}", e);
-                        },
+                        }
                     }
                 }
                 let write_map = _write_que.lock().unwrap().clone();
@@ -138,101 +142,149 @@ impl ProbeInterface {
         })
     }
 
-    fn write_mem(core: &mut Core, symbol: &VariableInfo, value_str: &str) -> Result<(),probe_rs::Error>{
+    fn write_mem(
+        core: &mut Core,
+        symbol: &VariableInfo,
+        value_str: &str,
+    ) -> Result<(), probe_rs::Error> {
         let c_type = symbol.types.as_str();
         let c_type = c_type.strip_prefix("volatile ").unwrap_or(&c_type);
         let c_type = c_type.strip_suffix(" [").unwrap_or(c_type);
         match c_type {
-            "signed char" | "char"  => core.write_word_8(symbol.address, value_str.parse::<f64>().unwrap() as i8 as u8),
-            "unsigned char"         => core.write_word_8(symbol.address, value_str.parse::<f64>().unwrap() as u8),
-            "short"                 => {
+            "signed char" | "char" => core.write_word_8(
+                symbol.address,
+                value_str.parse::<f64>().unwrap() as i8 as u8,
+            ),
+            "unsigned char" => {
+                core.write_word_8(symbol.address, value_str.parse::<f64>().unwrap() as u8)
+            }
+            "short" => {
                 let buf = value_str.parse::<f64>().unwrap() as i16;
                 let block = buf.to_le_bytes();
                 core.write_8(symbol.address, &block).map_err(|e| e.into())
-            },
-            "unsigned short"        => {
+            }
+            "unsigned short" => {
                 let buf = value_str.parse::<f64>().unwrap() as u16;
                 let block = buf.to_le_bytes();
                 core.write_8(symbol.address, &block).map_err(|e| e.into())
-            },
-            "int" | "long"          => core.write_word_32(symbol.address, value_str.parse::<f64>().unwrap() as i32 as u32),
-            "unsigned int"|"unsigned long"=> core.write_word_32(symbol.address, value_str.parse::<f64>().unwrap() as u32 as u32),
-            "long long"             => {
+            }
+            "int" | "long" => core.write_word_32(
+                symbol.address,
+                value_str.parse::<f64>().unwrap() as i32 as u32,
+            ),
+            "unsigned int" | "unsigned long" => core.write_word_32(
+                symbol.address,
+                value_str.parse::<f64>().unwrap() as u32 as u32,
+            ),
+            "long long" => {
                 let buf = value_str.parse::<f64>().unwrap() as i64;
                 let block = buf.to_le_bytes();
                 let block_u32 = [
                     u32::from_le_bytes([block[0], block[1], block[2], block[3]]),
-                    u32::from_le_bytes([block[4], block[5], block[6], block[7]])
+                    u32::from_le_bytes([block[4], block[5], block[6], block[7]]),
                 ];
-                core.write_32(symbol.address, &block_u32).map_err(|e| e.into())
-            },
-            "unsigned long long"    => {
+                core.write_32(symbol.address, &block_u32)
+                    .map_err(|e| e.into())
+            }
+            "unsigned long long" => {
                 let buf = value_str.parse::<f64>().unwrap() as u64;
                 let block = buf.to_le_bytes();
                 let block_u32 = [
                     u32::from_le_bytes([block[0], block[1], block[2], block[3]]),
-                    u32::from_le_bytes([block[4], block[5], block[6], block[7]])
+                    u32::from_le_bytes([block[4], block[5], block[6], block[7]]),
                 ];
-                core.write_32(symbol.address, &block_u32).map_err(|e| e.into())
-            },
-            "float"                 => core.write_word_32(symbol.address, value_str.parse::<f32>().unwrap().to_bits()),
-            "double"|"long double"  => core.write_word_64(symbol.address, value_str.parse::<f64>().unwrap().to_bits()),
+                core.write_32(symbol.address, &block_u32)
+                    .map_err(|e| e.into())
+            }
+            "float" => {
+                core.write_word_32(symbol.address, value_str.parse::<f32>().unwrap().to_bits())
+            }
+            "double" | "long double" => {
+                core.write_word_64(symbol.address, value_str.parse::<f64>().unwrap().to_bits())
+            }
             _ => Err(probe_rs::Error::Other(anyhow::anyhow!("Unsupported type"))),
         }
     }
 
-    fn read_mem(core: &mut Core, symbol: &VariableInfo) -> String{
+    fn read_mem(core: &mut Core, symbol: &VariableInfo) -> String {
         let c_type = symbol.types.as_str();
         let c_type = c_type.strip_prefix("volatile ").unwrap_or(&c_type);
         let c_type = c_type.strip_suffix(" [").unwrap_or(c_type);
         let val_str = {
             match c_type {
-                "char" | "signed char"  => {
-                    let val_bits = core.read_word_8(symbol.address).map_err(|e| {std::io::Error::new(std::io::ErrorKind::Other, e.to_string())}).unwrap();
-                    format!("{}",val_bits as i8)
-                },
-                "unsigned char"         => {
-                    let val_bits = core.read_word_8(symbol.address).map_err(|e| {std::io::Error::new(std::io::ErrorKind::Other, e.to_string())}).unwrap();
-                    format!("{}",val_bits)
-                },
-                "short"                 => {
+                "char" | "signed char" => {
+                    let val_bits = core
+                        .read_word_8(symbol.address)
+                        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+                        .unwrap();
+                    format!("{}", val_bits as i8)
+                }
+                "unsigned char" => {
+                    let val_bits = core
+                        .read_word_8(symbol.address)
+                        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+                        .unwrap();
+                    format!("{}", val_bits)
+                }
+                "short" => {
                     let mut buff = [0u8; 2];
-                    core.read_8(symbol.address, &mut buff).map_err(|e| {std::io::Error::new(std::io::ErrorKind::Other, e.to_string())}).unwrap();
+                    core.read_8(symbol.address, &mut buff)
+                        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+                        .unwrap();
                     let val_bits = u16::from_le_bytes(buff);
-                    format!("{}",val_bits as i16)
-                },
-                "unsigned short"        => {
+                    format!("{}", val_bits as i16)
+                }
+                "unsigned short" => {
                     let mut buff = [0u8; 2];
-                    core.read_8(symbol.address, &mut buff).map_err(|e| {std::io::Error::new(std::io::ErrorKind::Other, e.to_string())}).unwrap();
+                    core.read_8(symbol.address, &mut buff)
+                        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+                        .unwrap();
                     let val_bits = u16::from_le_bytes(buff);
-                    format!("{}",val_bits)
-                },
-                "int" | "long"          => {
-                    let val_bits = core.read_word_32(symbol.address).map_err(|e| {std::io::Error::new(std::io::ErrorKind::Other, e.to_string())}).unwrap();
-                    format!("{}",val_bits as i32)
-                },
-                "unsigned int"|"unsigned long" => {
-                    let val_bits = core.read_word_32(symbol.address).map_err(|e| {std::io::Error::new(std::io::ErrorKind::Other, e.to_string())}).unwrap();
-                    format!("{}",val_bits)
-                },
-                "long long"             => {
-                    let val_bits = core.read_word_64(symbol.address).map_err(|e| {std::io::Error::new(std::io::ErrorKind::Other, e.to_string())}).unwrap();
-                    format!("{}",val_bits as i64)
-                },
-                "unsigned long long"    => {
-                    let val_bits = core.read_word_64(symbol.address).map_err(|e| {std::io::Error::new(std::io::ErrorKind::Other, e.to_string())}).unwrap();
-                    format!("{}",val_bits)
-                },
-                "float"                 => {
-                    let val_bits = core.read_word_32(symbol.address).map_err(|e| {std::io::Error::new(std::io::ErrorKind::Other, e.to_string())}).unwrap();
-                    format!("{:?}",f32::from_bits(val_bits))
-
-                },
-                "double" |"long double"=> {
+                    format!("{}", val_bits)
+                }
+                "int" | "long" => {
+                    let val_bits = core
+                        .read_word_32(symbol.address)
+                        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+                        .unwrap();
+                    format!("{}", val_bits as i32)
+                }
+                "unsigned int" | "unsigned long" => {
+                    let val_bits = core
+                        .read_word_32(symbol.address)
+                        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+                        .unwrap();
+                    format!("{}", val_bits)
+                }
+                "long long" => {
+                    let val_bits = core
+                        .read_word_64(symbol.address)
+                        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+                        .unwrap();
+                    format!("{}", val_bits as i64)
+                }
+                "unsigned long long" => {
+                    let val_bits = core
+                        .read_word_64(symbol.address)
+                        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+                        .unwrap();
+                    format!("{}", val_bits)
+                }
+                "float" => {
+                    let val_bits = core
+                        .read_word_32(symbol.address)
+                        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+                        .unwrap();
+                    format!("{:?}", f32::from_bits(val_bits))
+                }
+                "double" | "long double" => {
                     // long double cast to double
-                    let val_bits = core.read_word_64(symbol.address).map_err(|e| {std::io::Error::new(std::io::ErrorKind::Other, e.to_string())}).unwrap();
-                    format!("{:?}",f64::from_bits(val_bits))
-                },
+                    let val_bits = core
+                        .read_word_64(symbol.address)
+                        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+                        .unwrap();
+                    format!("{:?}", f64::from_bits(val_bits))
+                }
                 _ => format!(""),
             }
         };
@@ -248,7 +300,8 @@ impl ProbeInterface {
         let now_time = self.log_timer.lock().unwrap().elapsed_ms();
         let last_time = now_time - 2000;
 
-        let mut measurements = self.load_data(index, Some(now_time as u64), Some(last_time as u64), None);
+        let mut measurements =
+            self.load_data(index, Some(now_time as u64), Some(last_time as u64), None);
 
         loop {
             let res = measurements.last();
@@ -273,7 +326,8 @@ impl ProbeInterface {
         if last_time < 0 {
             last_time = 0;
         }
-        let measurements = self.load_data(index, Some(now_time as u64), Some(last_time as u64), None);
+        let measurements =
+            self.load_data(index, Some(now_time as u64), Some(last_time as u64), None);
 
         let mut vec = Vec::new();
         for measurement in measurements {
@@ -284,7 +338,13 @@ impl ProbeInterface {
         vec
     }
 
-    fn load_data(&mut self, index: &str, time_start: Option<u64>, time_limit: Option<u64>, limit: Option<u64>) -> Vec<Measurement>{
+    fn load_data(
+        &mut self,
+        index: &str,
+        time_start: Option<u64>,
+        time_limit: Option<u64>,
+        limit: Option<u64>,
+    ) -> Vec<Measurement> {
         self.log_service
             .lock()
             .unwrap()
@@ -292,7 +352,7 @@ impl ProbeInterface {
             .expect("log service load error")
     }
 
-    pub fn insert_wirte_que(&mut self, symbol: &VariableInfo, data: &str){
+    pub fn insert_wirte_que(&mut self, symbol: &VariableInfo, data: &str) {
         self.write_que
             .lock()
             .unwrap()
@@ -301,4 +361,3 @@ impl ProbeInterface {
 }
 
 // ----------------------------------------------------------------------------
-

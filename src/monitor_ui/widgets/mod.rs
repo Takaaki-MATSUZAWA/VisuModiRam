@@ -171,10 +171,7 @@ impl WidgetWindow {
         let mut new_anchor = None;
 
         for (name, anchor) in self.apps_iter_mut() {
-            if ui
-                .selectable_label(is_selected == anchor, name)
-                .clicked()
-            {
+            if ui.selectable_label(is_selected == anchor, name).clicked() {
                 new_anchor = Some(anchor);
             }
         }
@@ -236,7 +233,7 @@ impl WidgetWindow {
         self.state.monitor_tab.set_probe(probe);
     }
 
-    pub fn switch_tab_to(&mut self, anchor: Anchor){
+    pub fn switch_tab_to(&mut self, anchor: Anchor) {
         self.state.selected_anchor = anchor;
 
         if anchor == Anchor::MonitorTab {
