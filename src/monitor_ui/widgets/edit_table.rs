@@ -1,6 +1,6 @@
 use eframe::egui;
 use egui::ahash::HashMap;
-use egui_extras::{Column, StripBuilder, TableBuilder};
+use egui_extras::{Column, TableBuilder};
 
 use super::MCUinterface;
 use crate::debugging_tools::*;
@@ -16,35 +16,26 @@ pub struct EditTable {
 // ----------------------------------------------------------------------------
 impl super::WidgetApp for EditTable {
     fn update(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        //let window_width = ui.ctx().used_rect().width();
-        let window_width = 360.0;
-
         const NAME_CLM: f32 = 120.;
         const EDIT_CLM: f32 = 100.;
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
-            egui::ScrollArea::horizontal().show(ui, |ui| {
+            //egui::ScrollArea::horizontal().show(ui, |ui| {
                 TableBuilder::new(ui)
                     .striped(true)
-                    .resizable(true)
-                    .drag_to_scroll(true)
-                    .max_scroll_height(5.)
-                    .column(Column::initial(NAME_CLM).resizable(true))
-                    .column(Column::initial(EDIT_CLM).resizable(true))
-                    .column(
-                        Column::initial(window_width - (NAME_CLM + EDIT_CLM + 50.0))
-                            .at_least(50.0)
-                            .resizable(true),
-                    )
-                    .header(9.0, |mut header| {
+                    .min_scrolled_height(0.0)
+                    .column(Column::exact(NAME_CLM).resizable(true))
+                    .column(Column::exact(EDIT_CLM).resizable(true))
+                    .column(Column::remainder())
+                    .header(20.0, |mut header| {
                         header.col(|ui| {
-                            ui.heading("Symbol Name");
+                            ui.strong("Symbol Name");
                         });
                         header.col(|ui| {
-                            ui.heading("Edit Value");
+                            ui.strong("Edit Value");
                         });
                         header.col(|ui| {
-                            ui.heading("Now Value");
+                            ui.strong("Now Value");
                         });
                     })
                     .body(|mut body| {
@@ -79,7 +70,7 @@ impl super::WidgetApp for EditTable {
                             });
                         }
                     });
-            });
+            //});
         });
     }
 

@@ -1,4 +1,4 @@
-use eframe::egui::{self, Color32};
+use eframe::egui;
 use egui_plot::{Corner, Legend, Line, LineStyle, Plot};
 
 use super::MCUinterface;

@@ -9,7 +9,7 @@ pub use table_view::TableView;
 pub use widget_test::WidgetTest;
 // ----------------------------------------------------------------------------
 use eframe::egui::{self, Pos2, Rect, Vec2};
-use egui_extras::{Column, TableBuilder};
+use egui_extras::{Column, TableBuilder, StripBuilder, Size};
 
 use crate::debugging_tools::*;
 // ----------------------------------------------------------------------------
@@ -136,7 +136,7 @@ impl WidgetWindow {
     }
 
     fn update_select_tab(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
-        self.state.select_tab.update(ui, frame, self.rect);
+        self.state.select_tab.update(ui, frame);
     }
 
     fn update_monitor_tab(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
@@ -200,6 +200,21 @@ impl WidgetWindow {
                 });
             });
 
+            StripBuilder::new(ui)
+            .size(Size::remainder().at_least(100.0)) // for the table
+            .size(Size::exact(0.5)) // for the source code link
+            .vertical(|mut strip| {
+                strip.cell(|ui| {
+                    egui::ScrollArea::horizontal().show(ui, |ui| {
+                        self.show_selected_app(ui, frame); // ctxをuiに変更
+                    });
+                });
+                strip.cell(|ui| {
+                    ui.vertical_centered(|_ui| {
+                    });
+                });
+            });
+            /*
             egui::TopBottomPanel::bottom(format!("btm_{}", self.id))
                 .resizable(false)
                 .min_height(0.0)
@@ -208,6 +223,7 @@ impl WidgetWindow {
                 });
 
             self.show_selected_app(ui, frame); // ctxをuiに変更
+            */
         });
 
         if let Some(inner_response) = res {
@@ -246,7 +262,7 @@ pub struct WatchSymbolSelectTab {
 }
 
 impl WatchSymbolSelectTab {
-    pub fn update(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame, rect: Rect) {
+    pub fn update(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         ui.horizontal(|ui| {
             if ui.button("All select").clicked() {
                 self.watch_list.iter_mut().for_each(|symbol| {
@@ -265,24 +281,17 @@ impl WatchSymbolSelectTab {
 
             TableBuilder::new(ui)
                 .striped(true)
-                .resizable(true)
-                .vscroll(true)
-                .drag_to_scroll(true)
-                //.max_scroll_height(10.)
-                .column(Column::initial(CHECK_CLM).resizable(false))
+                .min_scrolled_height(0.0)
+                .column(Column::exact(CHECK_CLM).resizable(false))
                 .column(Column::initial(TYPE_CLM).resizable(true))
-                .column(
-                    Column::initial(rect.width() - (CHECK_CLM + TYPE_CLM + 50.0))
-                        .at_least(50.0)
-                        .resizable(true),
-                )
+                .column(Column::remainder())
                 .header(9.0, |mut header| {
                     header.col(|_| {});
                     header.col(|ui| {
-                        ui.heading("Type");
+                        ui.strong("Type");
                     });
                     header.col(|ui| {
-                        ui.heading("Symbol Name");
+                        ui.strong("Symbol Name");
                     });
                 })
                 .body(|mut body| {

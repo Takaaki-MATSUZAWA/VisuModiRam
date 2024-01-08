@@ -1,11 +1,13 @@
 use super::gdb_parser::VariableInfo;
-use probe_rs::{Core, MemoryInterface, Permissions, Probe};
-use sensorlog::{logfile_config::LogfileConfig, measure::Measurement, quota, time, Sensorlog};
+use probe_rs::{Permissions, Probe};
+use sensorlog::{logfile_config::LogfileConfig, measure::Measurement, quota, Sensorlog};
 use shellexpand;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use stopwatch::Stopwatch;
+
+use super::memory_interface::MCUMemory;
 
 #[derive(Default, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -25,7 +27,6 @@ pub struct ProbeInterface {
     watching_flag: Arc<Mutex<bool>>,
     #[cfg_attr(feature = "serde", serde(skip))]
     log_service: Arc<Mutex<Sensorlog>>,
-    log_start_utime: u64,
     #[cfg_attr(feature = "serde", serde(skip))]
     write_que: Arc<Mutex<BTreeMap<VariableInfo, String>>>,
     #[cfg_attr(feature = "serde", serde(skip))]
@@ -50,7 +51,6 @@ impl Default for ProbeInterface {
             setting: Default::default(),
             watching_flag: Arc::new(Mutex::new(false)),
             log_service: Arc::new(Mutex::new(log_service_default())),
-            log_start_utime: 0,
             write_que: Arc::new(Mutex::new(BTreeMap::new())),
             log_timer: Arc::new(Mutex::new(Stopwatch::new())),
         }
@@ -80,8 +80,6 @@ impl ProbeInterface {
 
         let _log_timer = Arc::clone(&self.log_timer);
         _log_timer.lock().unwrap().start();
-
-        self.log_start_utime = time::get_unix_microseconds().expect("get time error");
 
         let setting = self.setting.clone();
 
@@ -116,7 +114,7 @@ impl ProbeInterface {
                 }
 
                 for symbol in &setting.watch_list {
-                    let val_str = Self::read_mem(&mut core, symbol);
+                    let val_str = MCUMemory::read(&mut core, symbol);
                     let now_time = _log_timer.lock().unwrap().elapsed_ms();
 
                     match _log_service.lock().unwrap().store_measurement(
@@ -126,200 +124,19 @@ impl ProbeInterface {
                     ) {
                         Ok(_) => {}
                         Err(e) => {
-                            // ここでエラーを処理します。例えば、それをログに記録します
                             println!("測定値の保存中にエラーが発生しました: {}", e);
                         }
                     }
                 }
                 let write_map = _write_que.lock().unwrap().clone();
-                for que in write_map {
-                    let _res = Self::write_mem(&mut core, &que.0, &que.1);
-                }
                 _write_que.lock().unwrap().clear();
+                for que in write_map {
+                    let _res = MCUMemory::write(&mut core, &que.0, &que.1);
+                }
                 std::thread::sleep(duration);
             }
             Ok(())
         })
-    }
-
-    fn write_mem(
-        core: &mut Core,
-        symbol: &VariableInfo,
-        value_str: &str,
-    ) -> Result<(), probe_rs::Error> {
-        let c_type = symbol.types.as_str();
-        let c_type = c_type.strip_prefix("volatile ").unwrap_or(&c_type);
-        let c_type = c_type.strip_suffix(" [").unwrap_or(c_type);
-        match c_type {
-            "signed char" | "char" => match value_str.parse::<i8>() {
-                Ok(val) => core.write_word_8(symbol.address, val as u8),
-                Err(_) => Err(probe_rs::Error::Other(anyhow::anyhow!(
-                    "Parse error for signed char"
-                ))),
-            },
-            "unsigned char" => match value_str.parse::<u8>() {
-                Ok(val) => core.write_word_8(symbol.address, val),
-                Err(_) => Err(probe_rs::Error::Other(anyhow::anyhow!(
-                    "Parse error for unsigned char"
-                ))),
-            },
-            "short" => match value_str.parse::<i16>() {
-                Ok(val) => {
-                    let block = val.to_le_bytes();
-                    core.write_8(symbol.address, &block).map_err(|e| e.into())
-                }
-                Err(_) => Err(probe_rs::Error::Other(anyhow::anyhow!(
-                    "Parse error for short"
-                ))),
-            },
-            "unsigned short" => match value_str.parse::<u16>() {
-                Ok(val) => {
-                    let block = val.to_le_bytes();
-                    core.write_8(symbol.address, &block).map_err(|e| e.into())
-                }
-                Err(_) => Err(probe_rs::Error::Other(anyhow::anyhow!(
-                    "Parse error for unsigned short"
-                ))),
-            },
-            "int" | "long" => match value_str.parse::<i32>() {
-                Ok(val) => core.write_word_32(symbol.address, val as u32),
-                Err(_) => Err(probe_rs::Error::Other(anyhow::anyhow!(
-                    "Parse error for int/long"
-                ))),
-            },
-            "unsigned int" | "unsigned long" => match value_str.parse::<u32>() {
-                Ok(val) => core.write_word_32(symbol.address, val),
-                Err(_) => Err(probe_rs::Error::Other(anyhow::anyhow!(
-                    "Parse error for unsigned int/long"
-                ))),
-            },
-            "long long" => match value_str.parse::<i64>() {
-                Ok(val) => {
-                    let block = val.to_le_bytes();
-                    let block_u32 = [
-                        u32::from_le_bytes([block[0], block[1], block[2], block[3]]),
-                        u32::from_le_bytes([block[4], block[5], block[6], block[7]]),
-                    ];
-                    core.write_32(symbol.address, &block_u32)
-                        .map_err(|e| e.into())
-                }
-                Err(_) => Err(probe_rs::Error::Other(anyhow::anyhow!(
-                    "Parse error for long long"
-                ))),
-            },
-            "unsigned long long" => match value_str.parse::<u64>() {
-                Ok(val) => {
-                    let block = val.to_le_bytes();
-                    let block_u32 = [
-                        u32::from_le_bytes([block[0], block[1], block[2], block[3]]),
-                        u32::from_le_bytes([block[4], block[5], block[6], block[7]]),
-                    ];
-                    core.write_32(symbol.address, &block_u32)
-                        .map_err(|e| e.into())
-                }
-                Err(_) => Err(probe_rs::Error::Other(anyhow::anyhow!(
-                    "Parse error for unsigned long long"
-                ))),
-            },
-            "float" => match value_str.parse::<f32>() {
-                Ok(val) => core.write_word_32(symbol.address, val.to_bits()),
-                Err(_) => Err(probe_rs::Error::Other(anyhow::anyhow!(
-                    "Parse error for float"
-                ))),
-            },
-            "double" | "long double" => match value_str.parse::<f64>() {
-                Ok(val) => core.write_word_64(symbol.address, val.to_bits()),
-                Err(_) => Err(probe_rs::Error::Other(anyhow::anyhow!(
-                    "Parse error for double/long double"
-                ))),
-            },
-            _ => Err(probe_rs::Error::Other(anyhow::anyhow!("Unsupported type"))),
-        }
-    }
-
-    fn read_mem(core: &mut Core, symbol: &VariableInfo) -> String {
-        let c_type = symbol.types.as_str();
-        let c_type = c_type.strip_prefix("volatile ").unwrap_or(&c_type);
-        let c_type = c_type.strip_suffix(" [").unwrap_or(c_type);
-        let val_str = {
-            match c_type {
-                "char" | "signed char" => {
-                    let val_bits = core
-                        .read_word_8(symbol.address)
-                        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
-                        .unwrap();
-                    format!("{}", val_bits as i8)
-                }
-                "unsigned char" => {
-                    let val_bits = core
-                        .read_word_8(symbol.address)
-                        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
-                        .unwrap();
-                    format!("{}", val_bits)
-                }
-                "short" => {
-                    let mut buff = [0u8; 2];
-                    core.read_8(symbol.address, &mut buff)
-                        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
-                        .unwrap();
-                    let val_bits = u16::from_le_bytes(buff);
-                    format!("{}", val_bits as i16)
-                }
-                "unsigned short" => {
-                    let mut buff = [0u8; 2];
-                    core.read_8(symbol.address, &mut buff)
-                        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
-                        .unwrap();
-                    let val_bits = u16::from_le_bytes(buff);
-                    format!("{}", val_bits)
-                }
-                "int" | "long" => {
-                    let val_bits = core
-                        .read_word_32(symbol.address)
-                        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
-                        .unwrap();
-                    format!("{}", val_bits as i32)
-                }
-                "unsigned int" | "unsigned long" => {
-                    let val_bits = core
-                        .read_word_32(symbol.address)
-                        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
-                        .unwrap();
-                    format!("{}", val_bits)
-                }
-                "long long" => {
-                    let val_bits = core
-                        .read_word_64(symbol.address)
-                        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
-                        .unwrap();
-                    format!("{}", val_bits as i64)
-                }
-                "unsigned long long" => {
-                    let val_bits = core
-                        .read_word_64(symbol.address)
-                        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
-                        .unwrap();
-                    format!("{}", val_bits)
-                }
-                "float" => {
-                    let val_bits = core
-                        .read_word_32(symbol.address)
-                        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
-                        .unwrap();
-                    format!("{:?}", f32::from_bits(val_bits))
-                }
-                "double" | "long double" => {
-                    // long double cast to double
-                    let val_bits = core
-                        .read_word_64(symbol.address)
-                        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
-                        .unwrap();
-                    format!("{:?}", f64::from_bits(val_bits))
-                }
-                _ => format!(""),
-            }
-        };
-        val_str
     }
 
     pub fn watching_stop(&mut self) {

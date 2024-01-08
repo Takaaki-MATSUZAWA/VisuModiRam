@@ -1,6 +1,6 @@
 mod gdb_parser;
+mod memory_interface;
 mod probe_interface;
-//mod Symbol_logger;
 
 pub use gdb_parser::*;
 pub use probe_interface::{ProbeInterface, WatchSetting};
