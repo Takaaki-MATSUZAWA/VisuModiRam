@@ -1,7 +1,10 @@
 use eframe::egui::{self, Color32};
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 
-use super::{widgets, WidgetWindow};
+use super::{
+    widgets::{self, WidgetApp},
+    WidgetWindow,
+};
 use crate::debugging_tools::ProbeInterface;
 
 #[derive(Default)]
@@ -63,60 +66,47 @@ impl eframe::App for MainMonitorTab {
                 ui.separator();
 
                 // ----------------------------------------------------------------------------
-                if ui.button("add window").clicked() {
-                    self.window_cnt += 1;
-                    let widget_window = WidgetWindow::new(
-                        self.window_cnt,
-                        format!("{}_window", self.window_cnt),
-                        Box::new(widgets::WidgetTest::default()),
-                    );
-
-                    self.widgets.push(Box::new(widget_window));
-                }
+                self.add_widget_botton(
+                    ui,
+                    "add window",
+                    "window",
+                    Box::new(widgets::WidgetTest::default()),
+                );
                 // ----------------------------------------------------------------------------
-                if ui.button("add graph").clicked() {
-                    self.window_cnt += 1;
-                    let widget_window = WidgetWindow::new(
-                        self.window_cnt,
-                        format!("{}_graph", self.window_cnt),
-                        Box::new(widgets::GraphMonitor::default()),
-                    );
-
-                    self.widgets.push(Box::new(widget_window));
-                }
+                self.add_widget_botton(
+                    ui,
+                    "add graph",
+                    "graph",
+                    Box::new(widgets::GraphMonitor::default()),
+                );
                 // ----------------------------------------------------------------------------
-                if ui.button("add table view").clicked() {
-                    self.window_cnt += 1;
-                    let widget_window = WidgetWindow::new(
-                        self.window_cnt,
-                        format!("{}_table_view", self.window_cnt),
-                        Box::new(widgets::TableView::default()),
-                    );
-
-                    self.widgets.push(Box::new(widget_window));
-                }
+                self.add_widget_botton(
+                    ui,
+                    "add table view",
+                    "table_view",
+                    Box::new(widgets::TableView::default()),
+                );
                 // ----------------------------------------------------------------------------
-                if ui.button("add edit table").clicked() {
-                    self.window_cnt += 1;
-                    let widget_window = WidgetWindow::new(
-                        self.window_cnt,
-                        format!("{}_edit_table", self.window_cnt),
-                        Box::new(widgets::EditTable::default()),
-                    );
-
-                    self.widgets.push(Box::new(widget_window));
-                }
+                self.add_widget_botton(
+                    ui,
+                    "add edit table",
+                    "edit_table",
+                    Box::new(widgets::EditTable::default()),
+                );
                 // ----------------------------------------------------------------------------
-                if ui.button("add slider UI").clicked() {
-                    self.window_cnt += 1;
-                    let widget_window = WidgetWindow::new(
-                        self.window_cnt,
-                        format!("{}_sliders", self.window_cnt),
-                        Box::new(widgets::Sliders::default()),
-                    );
-
-                    self.widgets.push(Box::new(widget_window));
-                }
+                self.add_widget_botton(
+                    ui,
+                    "add slider UI",
+                    "Sliders",
+                    Box::new(widgets::Sliders::default()),
+                );
+                // ----------------------------------------------------------------------------
+                self.add_widget_botton(
+                    ui,
+                    "add toggle switchs",
+                    "toggle switchs",
+                    Box::new(widgets::ToggleSwitch::default()),
+                );
                 // ----------------------------------------------------------------------------
 
                 for wid in &mut self.widgets {
@@ -132,8 +122,8 @@ impl eframe::App for MainMonitorTab {
                     .striped(true)
                     .resizable(false)
                     .vscroll(true)
-                    .column(Column::initial(120.).resizable(false))
-                    .column(Column::initial(20.).resizable(false))
+                    .column(Column::initial(115.).resizable(false))
+                    .column(Column::initial(25.).resizable(false))
                     .header(9.0, |mut header| {
                         header.col(|ui| {
                             ui.heading("window name");
@@ -166,7 +156,7 @@ impl eframe::App for MainMonitorTab {
                                     }
                                 });
                                 row.col(|ui| {
-                                    let res = ui.button("✖️");
+                                    let res = ui.button("X");
                                     if res.clicked() {
                                         to_remove = Some(wid.id.clone());
                                     }
@@ -229,5 +219,24 @@ impl MainMonitorTab {
                     ui.end_row();
                 }
             });
+    }
+
+    fn add_widget_botton(
+        &mut self,
+        ui: &mut egui::Ui,
+        text: &str,
+        title: &str,
+        widget: Box<dyn WidgetApp>,
+    ) {
+        if ui.button(text).clicked() {
+            self.window_cnt += 1;
+            let widget_window = WidgetWindow::new(
+                self.window_cnt,
+                format!("{}_{}", self.window_cnt, title),
+                widget,
+            );
+
+            self.widgets.push(Box::new(widget_window));
+        }
     }
 }

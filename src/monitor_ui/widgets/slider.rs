@@ -176,4 +176,29 @@ impl super::WidgetApp for Sliders {
     fn set_probe(&mut self, probe: ProbeInterface) {
         self.mcu.set_probe(probe);
     }
+
+    fn sync_button_enable(&self) -> bool {
+        true
+    }
+
+    fn sync(&mut self) {
+        let view_list = self.mcu.watch_list.clone();
+
+        for symbol in view_list {
+            let mut sldr = SliderSetting::default();
+            if let Some(setting) = self.sliders.get(&symbol.name) {
+                sldr = setting.clone();
+            }
+
+            if let Some(probe) = &mut self.mcu.probe {
+                if let Some(val) = probe.get_newest_date(&symbol.name) {
+                    sldr.value = val;
+                    sldr.max = sldr.max.max(val);
+                    sldr.min = sldr.min.min(val);
+                }
+            }
+
+            self.sliders.insert(symbol.name, sldr);
+        }
+    }
 }

@@ -2,12 +2,14 @@ mod edit_table;
 mod graph_monitor;
 mod slider;
 mod table_view;
+mod toggle_switch;
 mod widget_test;
 
 pub use edit_table::EditTable;
 pub use graph_monitor::GraphMonitor;
 pub use slider::Sliders;
 pub use table_view::TableView;
+pub use toggle_switch::ToggleSwitch;
 pub use widget_test::WidgetTest;
 // ----------------------------------------------------------------------------
 use eframe::egui::{self, Pos2, Rect, Vec2};
@@ -40,6 +42,12 @@ pub trait WidgetApp: serde_traitobject::Serialize + serde_traitobject::Deseriali
     // for MCUinterface wapper
     fn fetch_watch_list(&mut self, watch_list: &Vec<VariableInfo>);
     fn set_probe(&mut self, probe: ProbeInterface);
+
+    // sync buttun
+    fn sync_button_enable(&self) -> bool {
+        false
+    }
+    fn sync(&mut self) {}
 }
 // ----------------------------------------------------------------------------
 
@@ -163,6 +171,15 @@ impl WidgetWindow {
             }
         }
 
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            if self.state.monitor_tab.sync_button_enable() {
+                if ui.button("Sync from MCU").clicked() {
+                    self.state.monitor_tab.sync();
+                }
+            }
+            ui.separator();
+        });
+
         if let Some(anchor) = new_anchor {
             self.switch_tab_to(anchor);
         }
@@ -174,7 +191,9 @@ impl WidgetWindow {
     pub fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame, open: &mut bool) {
         let now_name = self.name.clone();
 
-        let mut wind = egui::Window::new(now_name.clone());
+        let mut wind = egui::Window::new(now_name.clone())
+            .default_width(380.0)
+            .default_height(280.0);
         wind = wind.open(open);
 
         if now_name != self.pre_name {
