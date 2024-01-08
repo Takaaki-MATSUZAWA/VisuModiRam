@@ -98,20 +98,20 @@ impl super::WidgetApp for ToggleSwitch {
                                     ui.label(&symbol.name);
                                 });
                                 row.col(|ui| {
-                                    let mut res =
+                                    let res =
                                         ui.add(egui::DragValue::new(&mut tgl.off_value).speed(1.0));
                                     if !tgl.state {
-                                        res = res.highlight();
+                                        res.highlight();
                                     }
                                 });
                                 row.col(|ui| {
                                     ui.add(toggle(&mut tgl.state));
                                 });
                                 row.col(|ui| {
-                                    let mut res =
+                                    let res =
                                         ui.add(egui::DragValue::new(&mut tgl.on_value).speed(1.0));
                                     if tgl.state {
-                                        res = res.highlight();
+                                        res.highlight();
                                     }
                                 });
                                 row.col(|ui| {

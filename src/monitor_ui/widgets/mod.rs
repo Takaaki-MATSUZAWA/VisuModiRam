@@ -1,3 +1,4 @@
+mod button;
 mod edit_table;
 mod graph_monitor;
 mod slider;
@@ -5,6 +6,7 @@ mod table_view;
 mod toggle_switch;
 mod widget_test;
 
+pub use button::PushButton;
 pub use edit_table::EditTable;
 pub use graph_monitor::GraphMonitor;
 pub use slider::Sliders;

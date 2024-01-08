@@ -12,6 +12,8 @@ use crate::debugging_tools::ProbeInterface;
 pub struct MainMonitorTab {
     widgets: Vec<Box<WidgetWindow>>,
     window_cnt: u32,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    remove_que: Option<u32>,
 
     pub probe_if: ProbeInterface,
 }
@@ -104,8 +106,15 @@ impl eframe::App for MainMonitorTab {
                 self.add_widget_botton(
                     ui,
                     "add toggle switchs",
-                    "toggle switchs",
+                    "toggle_switchs",
                     Box::new(widgets::ToggleSwitch::default()),
+                );
+                // ----------------------------------------------------------------------------
+                self.add_widget_botton(
+                    ui,
+                    "add push buttons",
+                    "push_buttons",
+                    Box::new(widgets::PushButton::default()),
                 );
                 // ----------------------------------------------------------------------------
 
@@ -132,7 +141,6 @@ impl eframe::App for MainMonitorTab {
                         header.col(|_ui| {});
                     })
                     .body(|mut body| {
-                        let mut to_remove = None;
                         let widget_names: Vec<_> =
                             self.widgets.iter().map(|w| w.name.clone()).collect();
 
@@ -158,7 +166,7 @@ impl eframe::App for MainMonitorTab {
                                 row.col(|ui| {
                                     let res = ui.button("X");
                                     if res.clicked() {
-                                        to_remove = Some(wid.id.clone());
+                                        Self::remove_widget_que(&mut self.remove_que, &wid.id);
                                     }
                                     if res.hovered() {
                                         ui.ctx().debug_painter().debug_rect(
@@ -170,28 +178,22 @@ impl eframe::App for MainMonitorTab {
                                 });
                             });
                         }
-
-                        if let Some(index) = to_remove {
-                            self.widgets.retain(|x| x.id != index);
-                        }
                     });
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("main panel");
-            let mut to_remove = None;
 
             for app in &mut self.widgets {
                 let mut open = true;
                 app.update(ctx, frame, &mut open);
 
                 if open == false {
-                    to_remove = Some(app.id.clone());
+                    Self::remove_widget_que(&mut self.remove_que, &app.id);
                 }
             }
-            if let Some(index) = to_remove {
-                self.widgets.retain(|x| x.id != index);
-            }
+
+            self.remove_widget_exec();
         });
     }
 }
@@ -237,6 +239,16 @@ impl MainMonitorTab {
             );
 
             self.widgets.push(Box::new(widget_window));
+        }
+    }
+
+    fn remove_widget_que(que: &mut Option<u32>, id: &u32) {
+        *que = Some(id.clone());
+    }
+
+    fn remove_widget_exec(&mut self) {
+        if let Some(id) = self.remove_que {
+            self.widgets.retain(|x| x.id != id);
         }
     }
 }
