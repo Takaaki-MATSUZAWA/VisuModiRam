@@ -107,6 +107,17 @@ impl eframe::App for MainMonitorTab {
                     self.widgets.push(Box::new(widget_window));
                 }
                 // ----------------------------------------------------------------------------
+                if ui.button("add slider UI").clicked() {
+                    self.window_cnt += 1;
+                    let widget_window = WidgetWindow::new(
+                        self.window_cnt,
+                        format!("{}_sliders", self.window_cnt),
+                        Box::new(widgets::Sliders::default()),
+                    );
+
+                    self.widgets.push(Box::new(widget_window));
+                }
+                // ----------------------------------------------------------------------------
 
                 for wid in &mut self.widgets {
                     wid.fetch_watch_list(&self.probe_if.setting.watch_list);
@@ -155,7 +166,7 @@ impl eframe::App for MainMonitorTab {
                                     }
                                 });
                                 row.col(|ui| {
-                                    let res = ui.button("x");
+                                    let res = ui.button("✖️");
                                     if res.clicked() {
                                         to_remove = Some(wid.id.clone());
                                     }

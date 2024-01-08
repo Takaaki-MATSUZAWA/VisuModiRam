@@ -1,15 +1,17 @@
 mod edit_table;
 mod graph_monitor;
+mod slider;
 mod table_view;
 mod widget_test;
 
 pub use edit_table::EditTable;
 pub use graph_monitor::GraphMonitor;
+pub use slider::Sliders;
 pub use table_view::TableView;
 pub use widget_test::WidgetTest;
 // ----------------------------------------------------------------------------
 use eframe::egui::{self, Pos2, Rect, Vec2};
-use egui_extras::{Column, TableBuilder, StripBuilder, Size};
+use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 
 use crate::debugging_tools::*;
 // ----------------------------------------------------------------------------
@@ -174,7 +176,7 @@ impl WidgetWindow {
 
         let mut wind = egui::Window::new(now_name.clone());
         wind = wind.open(open);
-        
+
         if now_name != self.pre_name {
             wind = wind.current_pos(self.rect.left_top());
             self.pre_name = now_name;
@@ -202,19 +204,18 @@ impl WidgetWindow {
             });
 
             StripBuilder::new(ui)
-            .size(Size::remainder().at_least(100.0)) // for the table
-            .size(Size::exact(0.5)) // for the source code link
-            .vertical(|mut strip| {
-                strip.cell(|ui| {
-                    egui::ScrollArea::horizontal().show(ui, |ui| {
-                        self.show_selected_app(ui, frame); // ctxをuiに変更
+                .size(Size::remainder().at_least(100.0)) // for the table
+                .size(Size::exact(0.5)) // for the source code link
+                .vertical(|mut strip| {
+                    strip.cell(|ui| {
+                        egui::ScrollArea::horizontal().show(ui, |ui| {
+                            self.show_selected_app(ui, frame); // ctxをuiに変更
+                        });
+                    });
+                    strip.cell(|ui| {
+                        ui.vertical_centered(|_ui| {});
                     });
                 });
-                strip.cell(|ui| {
-                    ui.vertical_centered(|_ui| {
-                    });
-                });
-            });
             /*
             egui::TopBottomPanel::bottom(format!("btm_{}", self.id))
                 .resizable(false)
