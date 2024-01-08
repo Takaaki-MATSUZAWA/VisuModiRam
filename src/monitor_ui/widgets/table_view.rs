@@ -16,11 +16,11 @@ impl super::WidgetApp for TableView {
         const NAME_CLM: f32 = 120.;
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
-            //egui::ScrollArea::horizontal().show(ui, |ui| {
+            egui::ScrollArea::horizontal().show(ui, |ui| {
                 TableBuilder::new(ui)
                     .striped(true)
                     .min_scrolled_height(0.0)
-                    .column(Column::exact(NAME_CLM).resizable(true))
+                    .column(Column::initial(NAME_CLM).resizable(true))
                     .column(Column::remainder())
                     .header(20.0, |mut header| {
                         header.col(|ui| {
@@ -47,7 +47,7 @@ impl super::WidgetApp for TableView {
                             });
                         }
                     });
-            //});
+            });
         });
     }
 

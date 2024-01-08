@@ -178,9 +178,18 @@ impl eframe::App for MainMonitorTab {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("main panel");
+            let mut to_remove = None;
 
             for app in &mut self.widgets {
-                app.update(ctx, frame);
+                let mut open = true;
+                app.update(ctx, frame, &mut open);
+
+                if open == false {
+                    to_remove = Some(app.id.clone());
+                }
+            }
+            if let Some(index) = to_remove {
+                self.widgets.retain(|x| x.id != index);
             }
         });
     }

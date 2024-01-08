@@ -169,11 +169,12 @@ impl WidgetWindow {
 
 // update ui function
 impl WidgetWindow {
-    pub fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    pub fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame, open: &mut bool) {
         let now_name = self.name.clone();
 
         let mut wind = egui::Window::new(now_name.clone());
-
+        wind = wind.open(open);
+        
         if now_name != self.pre_name {
             wind = wind.current_pos(self.rect.left_top());
             self.pre_name = now_name;
