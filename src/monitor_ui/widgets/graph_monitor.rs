@@ -4,10 +4,21 @@ use egui_plot::{Corner, Legend, Line, LineStyle, Plot};
 use super::MCUinterface;
 use crate::debugging_tools::*;
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct GraphMonitor {
     mcu: MCUinterface,
+
+    time_window: u64,
+}
+
+impl Default for GraphMonitor {
+    fn default() -> Self {
+        Self{
+            mcu: Default::default(),
+            time_window: 10000,
+        }
+    }
 }
 
 // ----------------------------------------------------------------------------
@@ -19,16 +30,31 @@ impl super::WidgetApp for GraphMonitor {
                 //.view_aspect(1.0)
                 .y_axis_width(4);
 
-            if ui.button("Reset").clicked() {
+            let mut reset_flag = false;
+            ui.horizontal(|ui| {
+                if ui.button("Position Reset").clicked() {
+                    reset_flag = true;
+                };
+                ui.separator();
+                ui.label("window time");
+                ui.add(
+                    egui::Slider::new(&mut self.time_window, 500..=20000)
+                        .smart_aim(true)
+                        .step_by(200.),
+                );
+                ui.label("[ms]");
+            });
+
+            if reset_flag{
                 plot = plot.reset();
-            };
+            }
 
             plot.show(ui, |plot_ui| {
                 for val in &mut self.mcu.watch_list.clone() {
                     if let Some(probe) = &mut self.mcu.probe {
                         plot_ui.line({
                             let data: Vec<[f64; 2]> = probe
-                                .get_log_vec(&val.name)
+                                .get_log_vec(&val.name, self.time_window)
                                 .iter()
                                 .enumerate()
                                 .map(|(_i, y)| [y[0], y[1]])
