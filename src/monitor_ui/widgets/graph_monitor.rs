@@ -42,7 +42,6 @@ impl super::WidgetApp for GraphMonitor {
                     egui::Slider::new(&mut self.time_window, 500..=20000)
                         .smart_aim(true)
                         .step_by(200.)
-
                 });
                 ui.label("[ms]");
 
@@ -51,7 +50,7 @@ impl super::WidgetApp for GraphMonitor {
                         .selectable_label(self.entire_duration_flag, "All time")
                         .clicked()
                     {
-                        self.entire_duration_flag = ! self.entire_duration_flag;
+                        self.entire_duration_flag = !self.entire_duration_flag;
                     }
                     ui.separator();
                 });

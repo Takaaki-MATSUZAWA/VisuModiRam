@@ -14,7 +14,7 @@ pub use table_view::TableView;
 pub use toggle_switch::ToggleSwitch;
 //pub use widget_test::WidgetTest;
 // ----------------------------------------------------------------------------
-use eframe::egui::{self, Pos2, Rect, Vec2, LayerId};
+use eframe::egui::{self, LayerId, Pos2, Rect, Vec2};
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 
 use crate::debugging_tools::*;
@@ -136,7 +136,7 @@ impl WidgetWindow {
             name,
             state: State::new(widget_ui),
             rect: Rect::from_min_size(Pos2::new(0.0, 0.0), Vec2::new(300.0, 400.0)),
-            layer_id: LayerId::new(egui::Order::Middle,  egui::Id::new(id)),
+            layer_id: LayerId::new(egui::Order::Middle, egui::Id::new(id)),
             first_update_flag_inv: true,
         }
     }
@@ -203,7 +203,6 @@ impl WidgetWindow {
         wind = wind.open(open);
 
         self.layer_id = egui::LayerId::new(egui::Order::Middle, id);
-
 
         if now_name != self.pre_name {
             wind = wind.current_pos(self.rect.left_top());

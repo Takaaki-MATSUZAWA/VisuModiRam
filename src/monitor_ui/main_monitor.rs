@@ -1,5 +1,6 @@
 use eframe::egui::{self, Color32};
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
+use std::time::Duration;
 
 use super::{
     widgets::{self, WidgetApp},
@@ -14,6 +15,7 @@ pub struct MainMonitorTab {
     window_cnt: u32,
     #[cfg_attr(feature = "serde", serde(skip))]
     remove_que: Option<u32>,
+    watch_duration_ms: u64,
 
     pub probe_if: ProbeInterface,
 }
@@ -39,13 +41,25 @@ impl eframe::App for MainMonitorTab {
                             }
 
                             ui.separator();
+                            ui.horizontal(|ui| {
+                                let now_watching = &self.probe_if.now_watching();
+                                ui.add_enabled_ui(*now_watching == false, |ui| {
+                                    ui.label("Duration :");
+                                    ui.add(
+                                        egui::DragValue::new(&mut self.watch_duration_ms)
+                                            .suffix("[ms]")
+                                            .clamp_range(1..=1000)
+                                            .speed(10),
+                                    );
+                                });
+                            });
                             if ui.button("watch start").clicked() {
                                 for wid in &mut self.widgets {
                                     wid.set_probe_to_app(self.probe_if.clone());
                                     wid.switch_tab_to(super::widgets::Anchor::MonitorTab);
                                 }
                                 self.probe_if
-                                    .watching_start(std::time::Duration::from_millis(1));
+                                    .watching_start(Duration::from_millis(self.watch_duration_ms));
                             }
 
                             if ui.button("stop").clicked() {
@@ -160,8 +174,8 @@ impl eframe::App for MainMonitorTab {
                                             wid.name = text;
                                         }
                                     }
-                                    
-                                    if res.clicked(){
+
+                                    if res.clicked() {
                                         ui.ctx().move_to_top(wid.layer_id);
                                     }
 

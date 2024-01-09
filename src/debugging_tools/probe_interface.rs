@@ -109,6 +109,7 @@ impl ProbeInterface {
             })?;
 
             loop {
+                let entry_time = std::time::Instant::now();
                 if *flag.lock().unwrap() == false {
                     break;
                 }
@@ -133,7 +134,13 @@ impl ProbeInterface {
                 for que in write_map {
                     let _res = MCUMemory::write(&mut core, &que.0, &que.1);
                 }
-                std::thread::sleep(duration);
+
+                let exit_time = std::time::Instant::now();
+
+                let elapsed_time = exit_time.duration_since(entry_time);
+                if let Some(sleep_duration) = duration.checked_sub(elapsed_time) {
+                    std::thread::sleep(sleep_duration);
+                }
             }
             Ok(())
         })
@@ -142,6 +149,10 @@ impl ProbeInterface {
     pub fn watching_stop(&mut self) {
         *self.watching_flag.lock().unwrap() = false;
         self.log_timer.lock().unwrap().stop();
+    }
+
+    pub fn now_watching(&mut self) -> bool {
+        *self.watching_flag.lock().unwrap()
     }
 
     pub fn get_newest_date(&mut self, index: &str) -> Option<f64> {
@@ -163,13 +174,12 @@ impl ProbeInterface {
         }
     }
 
+    // If time_window is None, data for the entire period is returned after starting measurement.
     pub fn get_log_vec(&mut self, index: &str, time_window: Option<u64>) -> Vec<[f64; 2]> {
-        //let time_window = 10000;
-
         let now_time = self.log_timer.lock().unwrap().elapsed_ms();
         let last_time = if time_window == None {
             None
-        }else{
+        } else {
             let mut last_time = now_time - (time_window.unwrap() as i64);
             if last_time < 0 {
                 last_time = 0;
@@ -177,8 +187,7 @@ impl ProbeInterface {
             Some(last_time as u64)
         };
 
-        let measurements =
-            self.load_data(index, Some(now_time as u64), last_time, None);
+        let measurements = self.load_data(index, Some(now_time as u64), last_time, None);
 
         let mut vec = Vec::new();
         for measurement in measurements {
