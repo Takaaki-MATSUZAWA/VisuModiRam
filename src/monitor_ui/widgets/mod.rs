@@ -1,5 +1,6 @@
 mod button;
 mod edit_table;
+mod gauge;
 mod graph_monitor;
 mod slider;
 mod table_view;
@@ -8,6 +9,7 @@ mod toggle_switch;
 
 pub use button::PushButton;
 pub use edit_table::EditTable;
+pub use gauge::Gauges;
 pub use graph_monitor::GraphMonitor;
 pub use slider::Sliders;
 pub use table_view::TableView;
@@ -49,6 +51,11 @@ pub trait WidgetApp: serde_traitobject::Serialize + serde_traitobject::Deseriali
     fn sync_button_enable(&self) -> bool {
         false
     }
+
+    fn disalbe_scroll_area(&self) -> bool {
+        false
+    }
+
     fn sync(&mut self) {}
 }
 // ----------------------------------------------------------------------------
@@ -235,9 +242,14 @@ impl WidgetWindow {
                 .size(Size::exact(0.5)) // for the source code link
                 .vertical(|mut strip| {
                     strip.cell(|ui| {
-                        egui::ScrollArea::horizontal().show(ui, |ui| {
+                        if self.state.monitor_tab.disalbe_scroll_area() {
+                            ui.set_clip_rect(self.rect.clone());
                             self.show_selected_app(ui, frame); // ctxをuiに変更
-                        });
+                        } else {
+                            egui::ScrollArea::horizontal().show(ui, |ui| {
+                                self.show_selected_app(ui, frame); // ctxをuiに変更
+                            });
+                        }
                     });
                     strip.cell(|ui| {
                         ui.vertical_centered(|_ui| {});

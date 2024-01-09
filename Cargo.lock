@@ -32,6 +32,7 @@ dependencies = [
  "egui",
  "egui-modal",
  "egui_extras",
+ "egui_gauge",
  "egui_plot",
  "env_logger 0.10.0",
  "erased-serde 0.4.1",
@@ -1307,6 +1308,17 @@ dependencies = [
  "serde",
  "tiny-skia",
  "usvg",
+]
+
+[[package]]
+name = "egui_gauge"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "521779f768221eb0c3f93e83be20aec0f2d6c6013af4bc1a27e9c8f0a09ad612"
+dependencies = [
+ "egui",
+ "emath",
+ "epaint",
 ]
 
 [[package]]

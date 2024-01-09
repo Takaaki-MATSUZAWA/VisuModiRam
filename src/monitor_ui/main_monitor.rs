@@ -105,6 +105,14 @@ impl eframe::App for MainMonitorTab {
                         Box::new(widgets::TableView::default()),
                     );
                     // ----------------------------------------------------------------------------
+                    self.add_widget_botton(
+                        ui,
+                        "Gauge view",
+                        "gauge_view",
+                        Box::new(widgets::Gauges::default()),
+                    );
+                    // ----------------------------------------------------------------------------
+
                     ui.separator();
                     ui.strong("Editor");
                     self.add_widget_botton(
