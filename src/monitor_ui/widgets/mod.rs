@@ -4,7 +4,7 @@ mod graph_monitor;
 mod slider;
 mod table_view;
 mod toggle_switch;
-mod widget_test;
+//mod widget_test;
 
 pub use button::PushButton;
 pub use edit_table::EditTable;
@@ -12,9 +12,9 @@ pub use graph_monitor::GraphMonitor;
 pub use slider::Sliders;
 pub use table_view::TableView;
 pub use toggle_switch::ToggleSwitch;
-pub use widget_test::WidgetTest;
+//pub use widget_test::WidgetTest;
 // ----------------------------------------------------------------------------
-use eframe::egui::{self, Pos2, Rect, Vec2};
+use eframe::egui::{self, Pos2, Rect, Vec2, LayerId};
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 
 use crate::debugging_tools::*;
@@ -119,6 +119,7 @@ pub struct WidgetWindow {
     pub name: String,
     pub id: u32,
     pub rect: Rect,
+    pub layer_id: LayerId,
 
     state: State,
     pre_name: String,
@@ -135,6 +136,7 @@ impl WidgetWindow {
             name,
             state: State::new(widget_ui),
             rect: Rect::from_min_size(Pos2::new(0.0, 0.0), Vec2::new(300.0, 400.0)),
+            layer_id: LayerId::new(egui::Order::Middle,  egui::Id::new(id)),
             first_update_flag_inv: true,
         }
     }
@@ -193,10 +195,15 @@ impl WidgetWindow {
     pub fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame, open: &mut bool) {
         let now_name = self.name.clone();
 
+        let id = egui::Id::new(self.id);
         let mut wind = egui::Window::new(now_name.clone())
+            .id(id)
             .default_width(380.0)
             .default_height(280.0);
         wind = wind.open(open);
+
+        self.layer_id = egui::LayerId::new(egui::Order::Middle, id);
+
 
         if now_name != self.pre_name {
             wind = wind.current_pos(self.rect.left_top());

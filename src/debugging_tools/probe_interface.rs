@@ -163,16 +163,22 @@ impl ProbeInterface {
         }
     }
 
-    pub fn get_log_vec(&mut self, index: &str, time_window: u64) -> Vec<[f64; 2]> {
+    pub fn get_log_vec(&mut self, index: &str, time_window: Option<u64>) -> Vec<[f64; 2]> {
         //let time_window = 10000;
 
         let now_time = self.log_timer.lock().unwrap().elapsed_ms();
-        let mut last_time = now_time - (time_window as i64);
-        if last_time < 0 {
-            last_time = 0;
-        }
+        let last_time = if time_window == None {
+            None
+        }else{
+            let mut last_time = now_time - (time_window.unwrap() as i64);
+            if last_time < 0 {
+                last_time = 0;
+            }
+            Some(last_time as u64)
+        };
+
         let measurements =
-            self.load_data(index, Some(now_time as u64), Some(last_time as u64), None);
+            self.load_data(index, Some(now_time as u64), last_time, None);
 
         let mut vec = Vec::new();
         for measurement in measurements {

@@ -61,81 +61,86 @@ impl eframe::App for MainMonitorTab {
             });
 
         egui::SidePanel::right("widgets")
+            .default_width(120.)
             .resizable(false)
-            .default_width(140.0)
             .show(ctx, |ui| {
-                ui.heading("monitor app list");
+                ui.heading("Add Monitor App");
                 ui.separator();
+                ui.with_layout(egui::Layout::top_down_justified(egui::Align::LEFT), |ui| {
+                    ui.strong("Viewer");
+                    // ----------------------------------------------------------------------------
+                    #[cfg(disable)]
+                    self.add_widget_botton(
+                        ui,
+                        "window",
+                        "window",
+                        Box::new(widgets::WidgetTest::default()),
+                    );
+                    // ----------------------------------------------------------------------------
+                    self.add_widget_botton(
+                        ui,
+                        "Plot",
+                        "Plot",
+                        Box::new(widgets::GraphMonitor::default()),
+                    );
+                    // ----------------------------------------------------------------------------
+                    self.add_widget_botton(
+                        ui,
+                        "Table view",
+                        "table_view",
+                        Box::new(widgets::TableView::default()),
+                    );
+                    // ----------------------------------------------------------------------------
+                    ui.separator();
+                    ui.strong("Editor");
+                    self.add_widget_botton(
+                        ui,
+                        "Edit Table",
+                        "edit_table",
+                        Box::new(widgets::EditTable::default()),
+                    );
+                    // ----------------------------------------------------------------------------
+                    self.add_widget_botton(
+                        ui,
+                        "Slider UI",
+                        "Sliders",
+                        Box::new(widgets::Sliders::default()),
+                    );
+                    // ----------------------------------------------------------------------------
+                    self.add_widget_botton(
+                        ui,
+                        "Toggle Switchs",
+                        "toggle_switchs",
+                        Box::new(widgets::ToggleSwitch::default()),
+                    );
+                    // ----------------------------------------------------------------------------
+                    self.add_widget_botton(
+                        ui,
+                        "Push Buttons",
+                        "push_buttons",
+                        Box::new(widgets::PushButton::default()),
+                    );
+                    // ----------------------------------------------------------------------------
 
-                // ----------------------------------------------------------------------------
-                self.add_widget_botton(
-                    ui,
-                    "add window",
-                    "window",
-                    Box::new(widgets::WidgetTest::default()),
-                );
-                // ----------------------------------------------------------------------------
-                self.add_widget_botton(
-                    ui,
-                    "add graph",
-                    "graph",
-                    Box::new(widgets::GraphMonitor::default()),
-                );
-                // ----------------------------------------------------------------------------
-                self.add_widget_botton(
-                    ui,
-                    "add table view",
-                    "table_view",
-                    Box::new(widgets::TableView::default()),
-                );
-                // ----------------------------------------------------------------------------
-                self.add_widget_botton(
-                    ui,
-                    "add edit table",
-                    "edit_table",
-                    Box::new(widgets::EditTable::default()),
-                );
-                // ----------------------------------------------------------------------------
-                self.add_widget_botton(
-                    ui,
-                    "add slider UI",
-                    "Sliders",
-                    Box::new(widgets::Sliders::default()),
-                );
-                // ----------------------------------------------------------------------------
-                self.add_widget_botton(
-                    ui,
-                    "add toggle switchs",
-                    "toggle_switchs",
-                    Box::new(widgets::ToggleSwitch::default()),
-                );
-                // ----------------------------------------------------------------------------
-                self.add_widget_botton(
-                    ui,
-                    "add push buttons",
-                    "push_buttons",
-                    Box::new(widgets::PushButton::default()),
-                );
-                // ----------------------------------------------------------------------------
+                    for wid in &mut self.widgets {
+                        wid.fetch_watch_list(&self.probe_if.setting.watch_list);
+                    }
 
-                for wid in &mut self.widgets {
-                    wid.fetch_watch_list(&self.probe_if.setting.watch_list);
-                }
-
-                ui.separator();
-                if ui.button("Organize windows").clicked() {
-                    ui.ctx().memory_mut(|mem| mem.reset_areas());
-                }
+                    ui.separator();
+                    if ui.button("Organize windows").clicked() {
+                        ui.ctx().memory_mut(|mem| mem.reset_areas());
+                    }
+                });
                 ui.separator();
                 TableBuilder::new(ui)
                     .striped(true)
                     .resizable(false)
                     .vscroll(true)
-                    .column(Column::initial(115.).resizable(false))
-                    .column(Column::initial(25.).resizable(false))
-                    .header(9.0, |mut header| {
+                    .column(Column::initial(100.).resizable(false))
+                    .column(Column::auto_with_initial_suggestion(25.).resizable(false))
+                    .header(22.0, |mut header| {
                         header.col(|ui| {
-                            ui.heading("window name");
+                            ui.strong("window name");
                             //ui.set_width(100.0);
                         });
                         header.col(|_ui| {});
@@ -155,6 +160,11 @@ impl eframe::App for MainMonitorTab {
                                             wid.name = text;
                                         }
                                     }
+                                    
+                                    if res.clicked(){
+                                        ui.ctx().move_to_top(wid.layer_id);
+                                    }
+
                                     if res.hovered() {
                                         ui.ctx().debug_painter().debug_rect(
                                             wid.rect,
@@ -183,18 +193,18 @@ impl eframe::App for MainMonitorTab {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("main panel");
-
-            for app in &mut self.widgets {
-                let mut open = true;
-                app.update(ctx, frame, &mut open);
-
-                if open == false {
-                    Self::remove_widget_que(&mut self.remove_que, &app.id);
-                }
-            }
-
-            self.remove_widget_exec();
         });
+
+        for app in &mut self.widgets {
+            let mut open = true;
+            app.update(ctx, frame, &mut open);
+
+            if open == false {
+                Self::remove_widget_que(&mut self.remove_que, &app.id);
+            }
+        }
+
+        self.remove_widget_exec();
     }
 }
 

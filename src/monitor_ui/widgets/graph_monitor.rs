@@ -10,13 +10,15 @@ pub struct GraphMonitor {
     mcu: MCUinterface,
 
     time_window: u64,
+    entire_duration_flag: bool,
 }
 
 impl Default for GraphMonitor {
     fn default() -> Self {
-        Self{
+        Self {
             mcu: Default::default(),
             time_window: 10000,
+            entire_duration_flag: false,
         }
     }
 }
@@ -32,29 +34,44 @@ impl super::WidgetApp for GraphMonitor {
 
             let mut reset_flag = false;
             ui.horizontal(|ui| {
-                if ui.button("Position Reset").clicked() {
+                if ui.button("Pos Reset").clicked() {
                     reset_flag = true;
                 };
                 ui.separator();
-                ui.label("window time");
-                ui.add(
+                ui.add_enabled(self.entire_duration_flag == false, {
                     egui::Slider::new(&mut self.time_window, 500..=20000)
                         .smart_aim(true)
-                        .step_by(200.),
-                );
+                        .step_by(200.)
+
+                });
                 ui.label("[ms]");
+
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if ui
+                        .selectable_label(self.entire_duration_flag, "All time")
+                        .clicked()
+                    {
+                        self.entire_duration_flag = ! self.entire_duration_flag;
+                    }
+                    ui.separator();
+                });
             });
 
-            if reset_flag{
+            if reset_flag {
                 plot = plot.reset();
             }
 
             plot.show(ui, |plot_ui| {
                 for val in &mut self.mcu.watch_list.clone() {
                     if let Some(probe) = &mut self.mcu.probe {
+                        let time_window = if self.entire_duration_flag {
+                            None
+                        } else {
+                            Some(self.time_window)
+                        };
                         plot_ui.line({
                             let data: Vec<[f64; 2]> = probe
-                                .get_log_vec(&val.name, self.time_window)
+                                .get_log_vec(&val.name, time_window)
                                 .iter()
                                 .enumerate()
                                 .map(|(_i, y)| [y[0], y[1]])

@@ -48,9 +48,13 @@ pub struct State {
 }
 pub struct LayoutTest {
     state: State,
+
+    open_dialog: bool,
 }
 
 use egui_modal::Modal;
+use rfd::FileDialog;
+use std::path::PathBuf;
 
 impl LayoutTest {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
@@ -60,6 +64,7 @@ impl LayoutTest {
         #[allow(unused_mut)]
         let mut slf = Self {
             state: State::default(),
+            open_dialog: false,
         };
 
         #[cfg(feature = "persistence")]
@@ -131,33 +136,70 @@ impl LayoutTest {
         }
 
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if ui.button("Save layout").clicked() {}
-
-            if ui.button("Loat layout").clicked() {}
-
             if ui.button("Reset All layout").clicked() {
-                *cmd = Command::ResetEverything;
-                ui.close_menu();
+                self.open_dialog = true;
+                //*cmd = Command::ResetEverything;
+                //ui.close_menu();
             }
+            ui.separator();
+            if ui.button("Load layout").clicked() {
+                if let Some(path) = FileDialog::new()
+                    .add_filter("Layout file", &["ron"])
+                    .pick_file()
+                {
+                    if let Ok(load_data) = self::load_layout(path) {
+                        self.state = load_data;
+                    } else {
+                        println!("faild load layout");
+                    }
+                }
+            }
+            ui.separator();
+            if ui.button("Save layout").clicked() {
+                if let Some(path) = FileDialog::new()
+                    .set_file_name("monitor_layout")
+                    .add_filter("Layout file", &["ron"])
+                    .save_file()
+                {
+                    println!("{:?}", path);
+                    let mut path_with_extension = path.clone();
+                    if !path.to_str().map_or(false, |s| s.ends_with(".ron")) {
+                        path_with_extension = path.with_extension("ron");
+                    }
+                    self::save_layout(path_with_extension, &self.state);
+                }
+            }
+            ui.separator();
         });
+
+        if self.open_dialog {
+            self.reset_dialog_ui(ui.ctx(), cmd);
+        }
     }
 
-    fn reset_dialog(&mut self, ctx: &egui::Context) {
-        let modal = Modal::new(ctx, "my_modal");
+    fn reset_dialog_ui(&mut self, ctx: &egui::Context, cmd: &mut Command) {
+        let modal = Modal::new(ctx, "reset_dialog");
 
         // What goes inside the modal
         modal.show(|ui| {
             // these helper functions help set the ui based on the modal's
             // set style, but they are not required and you can put whatever
             // ui you want inside [`.show()`]
-            modal.title(ui, "Hello world!");
+            modal.title(ui, "Warning!");
             modal.frame(ui, |ui| {
-                modal.body(ui, "This is a modal.");
+                modal.body(
+                    ui,
+                    "Are you sure you want to RESET ALL layouts, elf file paths and watchlists?",
+                );
             });
             modal.buttons(ui, |ui| {
-                // After clicking, the modal is automatically closed
-                if modal.button(ui, "close").clicked() {
-                    println!("Hello world!")
+                if modal.button(ui, "cancel").clicked() {
+                    self.open_dialog = false;
+                };
+                if modal.button(ui, "All Reset").clicked() {
+                    *cmd = Command::ResetEverything;
+                    ui.close_menu();
+                    self.open_dialog = false;
                 };
             });
         });
@@ -205,15 +247,17 @@ impl eframe::App for LayoutTest {
     }
 }
 
-#[cfg(feature = "ron")]
-pub fn set_value<T: serde::Serialize>(storage: &mut dyn eframe::Storage, key: &str, value: &T) {
-    crate::profile_function!(key);
-    match ron::ser::to_string(value) {
-        Ok(string) => storage.set_string(key, string),
-        Err(err) => log::error!("eframe failed to encode data using ron: {}", err),
-    }
+pub fn save_layout<T: serde::Serialize>(save_file: PathBuf, value: &T) {
+    let serialized = ron::ser::to_string(&value).expect("Failed to serialize state");
+    println!("serialized!!!");
+    std::fs::write(save_file, serialized).expect("Failed to write to file");
+    println!("saved!!!");
 }
 
-#[allow(dead_code)]
-/// [`Storage`] key used for app
-pub const APP_KEY: &str = "app";
+pub fn load_layout<T: serde::de::DeserializeOwned>(load_file: PathBuf) -> Result<T, String> {
+    let serialized_data = std::fs::read_to_string(load_file)
+        .map_err(|err| format!("Failed to read from file: {}", err))?;
+    let deserialized = ron::de::from_str(&serialized_data)
+        .map_err(|err| format!("Failed to deserialize state: {}", err))?;
+    Ok(deserialized)
+}
