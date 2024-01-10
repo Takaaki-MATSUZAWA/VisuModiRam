@@ -13,7 +13,7 @@ pub use gauge::Gauges;
 pub use graph_monitor::GraphMonitor;
 pub use slider::Sliders;
 pub use table_view::TableView;
-pub use toggle_switch::{ToggleSwitch, toggle};
+pub use toggle_switch::{toggle, ToggleSwitch};
 //pub use widget_test::WidgetTest;
 // ----------------------------------------------------------------------------
 use eframe::egui::{self, LayerId, Pos2, Rect, Vec2};
@@ -128,16 +128,24 @@ pub struct WidgetWindow {
     pub rect: Rect,
     pub layer_id: LayerId,
 
+    title_bar: bool,
+    lock: bool,
+
     state: State,
     pre_name: String,
     #[cfg_attr(feature = "serde", serde(skip))]
     first_update_flag_inv: bool,
-    title_bar: bool,
 }
 
 // basic ui functions
 impl WidgetWindow {
-    pub fn new(id: u32, name: String, title_bar:bool, widget_ui: Box<dyn WidgetApp>) -> Self {
+    pub fn new(
+        id: u32,
+        name: String,
+        title_bar: bool,
+        lock: bool,
+        widget_ui: Box<dyn WidgetApp>,
+    ) -> Self {
         Self {
             id,
             pre_name: name.clone(),
@@ -147,6 +155,7 @@ impl WidgetWindow {
             layer_id: LayerId::new(egui::Order::Middle, egui::Id::new(id)),
             first_update_flag_inv: true,
             title_bar,
+            lock,
         }
     }
 
@@ -207,6 +216,9 @@ impl WidgetWindow {
         let id = egui::Id::new(self.id);
         let mut wind = egui::Window::new(now_name.clone())
             .id(id)
+            .title_bar(self.title_bar)
+            .resizable(!self.lock)
+            .movable(!self.lock)
             .default_width(380.0)
             .default_height(280.0);
         wind = wind.open(open);
@@ -225,7 +237,7 @@ impl WidgetWindow {
             self.first_update_flag_inv = true;
         }
 
-        let res = wind.title_bar(self.title_bar).show(ctx, |ui| {
+        let res = wind.show(ctx, |ui| {
             #[cfg(not(target_arch = "wasm32"))]
             if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::F11)) {
                 let fullscreen = ctx.input(|i| i.viewport().fullscreen.unwrap_or(false));
@@ -285,8 +297,12 @@ impl WidgetWindow {
         }
     }
 
-    pub fn show_title_bar(&mut self, enable: bool){
+    pub fn show_title_bar(&mut self, enable: bool) {
         self.title_bar = enable;
+    }
+
+    pub fn lock(&mut self, enable: bool) {
+        self.lock = enable;
     }
 }
 

@@ -16,15 +16,15 @@ pub struct MainMonitorTab {
     #[cfg_attr(feature = "serde", serde(skip))]
     remove_que: Option<u32>,
     watch_duration_ms: u64,
+
     hide_title_bar: bool,
+    move_and_resize_lock: bool,
 
     pub probe_if: ProbeInterface,
 }
 
 impl eframe::App for MainMonitorTab {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        //let window_width = ctx.available_rect().width();
-
         egui::SidePanel::left("control")
             .resizable(true)
             .default_width(150.0)
@@ -153,17 +153,33 @@ impl eframe::App for MainMonitorTab {
                     if ui.button("Organize windows").clicked() {
                         ui.ctx().memory_mut(|mem| mem.reset_areas());
                     }
-                    
-                    ui.horizontal(|ui|{
-                        ui.label("Show title bar");
-                        let mut enable = !self.hide_title_bar;
-                        if ui.add(super::widgets::toggle(&mut enable)).changed(){
-                            for wid in &mut self.widgets {
-                                wid.show_title_bar(enable);
+
+                    egui::Grid::new("window_setting_switchs")
+                        .num_columns(2)
+                        .spacing([5.0, 4.0])
+                        .striped(true)
+                        .show(ui, |ui| {
+                            ui.label("Show title bar");
+                            let mut enable = !self.hide_title_bar;
+                            if ui.add(super::widgets::toggle(&mut enable)).changed() {
+                                for wid in &mut self.widgets {
+                                    wid.show_title_bar(enable);
+                                }
                             }
-                        }
-                        self.hide_title_bar = !enable;
-                    });
+                            self.hide_title_bar = !enable;
+                            ui.end_row();
+
+                            ui.label("window lock");
+                            if ui
+                                .add(super::widgets::toggle(&mut self.move_and_resize_lock))
+                                .changed()
+                            {
+                                for wid in &mut self.widgets {
+                                    wid.lock(self.move_and_resize_lock);
+                                }
+                            }
+                            ui.end_row();
+                        });
                 });
                 ui.separator();
                 TableBuilder::new(ui)
@@ -279,6 +295,7 @@ impl MainMonitorTab {
                 self.window_cnt,
                 format!("{}_{}", self.window_cnt, title),
                 !self.hide_title_bar,
+                self.move_and_resize_lock,
                 widget,
             );
 

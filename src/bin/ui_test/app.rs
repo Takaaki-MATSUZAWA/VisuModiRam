@@ -82,7 +82,7 @@ impl eframe::App for TemplateApp {
             ui.separator();
 
             // test UI
-            let led_state = self.value%2.0 == 0.0;
+            let led_state = self.value % 2.0 == 0.0;
             ui.add(led(led_state, Color32::RED));
 
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
@@ -128,7 +128,7 @@ fn led_ui(ui: &mut egui::Ui, on: bool, on_color: Color32) -> egui::Response {
             .circle(center, 0.75 * radius, visuals.bg_fill, visuals.fg_stroke);
         */
         let mut visuals = ui.style().interact_selectable(&response, on);
-        if on{
+        if on {
             visuals.bg_fill = on_color;
         }
         let rect = rect.expand(visuals.expansion);
