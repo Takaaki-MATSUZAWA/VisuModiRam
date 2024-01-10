@@ -13,7 +13,7 @@ pub use gauge::Gauges;
 pub use graph_monitor::GraphMonitor;
 pub use slider::Sliders;
 pub use table_view::TableView;
-pub use toggle_switch::ToggleSwitch;
+pub use toggle_switch::{ToggleSwitch, toggle};
 //pub use widget_test::WidgetTest;
 // ----------------------------------------------------------------------------
 use eframe::egui::{self, LayerId, Pos2, Rect, Vec2};
@@ -132,11 +132,12 @@ pub struct WidgetWindow {
     pre_name: String,
     #[cfg_attr(feature = "serde", serde(skip))]
     first_update_flag_inv: bool,
+    title_bar: bool,
 }
 
 // basic ui functions
 impl WidgetWindow {
-    pub fn new(id: u32, name: String, widget_ui: Box<dyn WidgetApp>) -> Self {
+    pub fn new(id: u32, name: String, title_bar:bool, widget_ui: Box<dyn WidgetApp>) -> Self {
         Self {
             id,
             pre_name: name.clone(),
@@ -145,6 +146,7 @@ impl WidgetWindow {
             rect: Rect::from_min_size(Pos2::new(0.0, 0.0), Vec2::new(300.0, 400.0)),
             layer_id: LayerId::new(egui::Order::Middle, egui::Id::new(id)),
             first_update_flag_inv: true,
+            title_bar,
         }
     }
 
@@ -223,7 +225,7 @@ impl WidgetWindow {
             self.first_update_flag_inv = true;
         }
 
-        let res = wind.show(ctx, |ui| {
+        let res = wind.title_bar(self.title_bar).show(ctx, |ui| {
             #[cfg(not(target_arch = "wasm32"))]
             if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::F11)) {
                 let fullscreen = ctx.input(|i| i.viewport().fullscreen.unwrap_or(false));
@@ -255,16 +257,6 @@ impl WidgetWindow {
                         ui.vertical_centered(|_ui| {});
                     });
                 });
-            /*
-            egui::TopBottomPanel::bottom(format!("btm_{}", self.id))
-                .resizable(false)
-                .min_height(0.0)
-                .show_inside(ui, |ui| {
-                    ui.vertical_centered(|_ui| {});
-                });
-
-            self.show_selected_app(ui, frame); // ctxをuiに変更
-            */
         });
 
         if let Some(inner_response) = res {
@@ -291,6 +283,10 @@ impl WidgetWindow {
             let list = SelectableVariableInfo::pick_selected(&self.state.select_tab.watch_list);
             self.state.monitor_tab.fetch_watch_list(&list.clone());
         }
+    }
+
+    pub fn show_title_bar(&mut self, enable: bool){
+        self.title_bar = enable;
     }
 }
 

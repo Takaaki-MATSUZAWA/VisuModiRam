@@ -16,6 +16,7 @@ pub struct MainMonitorTab {
     #[cfg_attr(feature = "serde", serde(skip))]
     remove_que: Option<u32>,
     watch_duration_ms: u64,
+    hide_title_bar: bool,
 
     pub probe_if: ProbeInterface,
 }
@@ -75,10 +76,10 @@ impl eframe::App for MainMonitorTab {
             });
 
         egui::SidePanel::right("widgets")
-            .default_width(120.)
-            .resizable(false)
+            .default_width(110.)
+            .resizable(true)
             .show(ctx, |ui| {
-                ui.heading("Add Monitor App");
+                ui.heading("Add Monitor");
                 ui.separator();
                 ui.with_layout(egui::Layout::top_down_justified(egui::Align::LEFT), |ui| {
                     ui.strong("Viewer");
@@ -152,18 +153,28 @@ impl eframe::App for MainMonitorTab {
                     if ui.button("Organize windows").clicked() {
                         ui.ctx().memory_mut(|mem| mem.reset_areas());
                     }
+                    
+                    ui.horizontal(|ui|{
+                        ui.label("Show title bar");
+                        let mut enable = !self.hide_title_bar;
+                        if ui.add(super::widgets::toggle(&mut enable)).changed(){
+                            for wid in &mut self.widgets {
+                                wid.show_title_bar(enable);
+                            }
+                        }
+                        self.hide_title_bar = !enable;
+                    });
                 });
                 ui.separator();
                 TableBuilder::new(ui)
                     .striped(true)
                     .resizable(false)
                     .vscroll(true)
-                    .column(Column::initial(100.).resizable(false))
+                    .column(Column::initial(90.).resizable(false))
                     .column(Column::auto_with_initial_suggestion(25.).resizable(false))
                     .header(22.0, |mut header| {
                         header.col(|ui| {
                             ui.strong("window name");
-                            //ui.set_width(100.0);
                         });
                         header.col(|_ui| {});
                     })
@@ -267,6 +278,7 @@ impl MainMonitorTab {
             let widget_window = WidgetWindow::new(
                 self.window_cnt,
                 format!("{}_{}", self.window_cnt, title),
+                !self.hide_title_bar,
                 widget,
             );
 
