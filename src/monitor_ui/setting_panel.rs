@@ -112,6 +112,17 @@ impl SettingTab {
             }
         });
 
+        //TODO:非同期にする
+        if ui.button("Download").clicked() {
+            let elf_path = format!("{}", shellexpand::tilde(&self.symbol_search.input_elf_path));
+
+            let setting = self.get_watch_setting();
+            let mut probe_if = ProbeInterface::default();
+            let _ = probe_if.set_probe(setting);
+            
+            let _ = probe_if.flash(PathBuf::from(&elf_path));
+        }
+
         let mut prgres_text = "  Please load ELF file...";
         let mut now_progress = 0.0;
         let mut prgress_anime = false;

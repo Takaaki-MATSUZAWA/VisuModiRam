@@ -1,5 +1,5 @@
 use super::gdb_parser::VariableInfo;
-use probe_rs::{Permissions, Probe};
+use probe_rs::{Permissions, Probe, flashing, DebugProbeError};
 use sensorlog::{logfile_config::LogfileConfig, measure::Measurement, quota, Sensorlog};
 use shellexpand;
 use std::collections::BTreeMap;
@@ -217,6 +217,43 @@ impl ProbeInterface {
             .lock()
             .unwrap()
             .insert(symbol.clone(), data.to_string());
+    }
+
+    pub fn flash(&mut self, elf_path:PathBuf) -> Result<(), probe_rs::Error>{
+        let probes = Probe::list_all();
+        let setting = self.setting.clone();
+
+        if self.now_watching(){
+            return Err(probe_rs::Error::Probe(DebugProbeError::Attached));
+        }
+
+        let probe = probes
+            .into_iter()
+            .find(|probe| probe.serial_number == Some(setting.probe_sn.clone()))
+            .ok_or_else(|| {
+                std::io::Error::new(std::io::ErrorKind::Other, "No matching probe found")
+            })
+            .unwrap()
+            .open()
+            .unwrap();
+
+        // Attach to a chip.
+        let mut session = probe
+            .attach(setting.target_mcu.clone(), Permissions::default())?;
+            //.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;        
+        
+        let res = flashing::download_file(&mut session, elf_path, flashing::Format::Elf);
+            //.map_err(|e| probe_rs::Error::from(DebugProbeError::Other(e.to_string())))?;
+        println!("flash {:?}",res);
+
+        // Reset target according to CLI options
+    {
+        let mut core = session
+            .core(0)?;
+
+            core.reset()?;
+    }
+        Ok(())
     }
 }
 
