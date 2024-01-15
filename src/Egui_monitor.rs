@@ -138,8 +138,6 @@ impl STM32EguiMonitor {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             if ui.button("Reset All layout").clicked() {
                 self.open_dialog = true;
-                //*cmd = Command::ResetEverything;
-                //ui.close_menu();
             }
             ui.separator();
             if ui.button("Load layout").clicked() {

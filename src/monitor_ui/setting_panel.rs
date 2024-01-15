@@ -66,7 +66,10 @@ impl SettingTab {
 
             #[cfg(not(target_arch = "wasm32"))]
             if ui.button("browse…").clicked() {
-                if let Some(path) = FileDialog::new().pick_file() {
+                if let Some(path) = FileDialog::new()
+                    .add_filter("ELF file", &["elf"])
+                    .pick_file()
+                {
                     self.symbol_search.input_elf_path = path
                         .to_str()
                         .ok_or_else(|| "Failed to convert path to string")
@@ -77,10 +80,11 @@ impl SettingTab {
 
             let elf_path = format!("{}", shellexpand::tilde(&self.symbol_search.input_elf_path));
             let is_elf_file_exixt = std::path::Path::new(&elf_path).exists();
+            let is_not_elf_file = !elf_path.ends_with(".elf");
 
             if ui.button("Load").clicked() {
                 self.check_probe();
-                if is_elf_file_exixt {
+                if is_elf_file_exixt && !is_not_elf_file {
                     if let Some(mcu_id) =
                         crate::debugging_tools::search_target_mcu_name(&PathBuf::from(&elf_path))
                     {
@@ -103,6 +107,8 @@ impl SettingTab {
 
             if !is_elf_file_exixt {
                 ui.label(RichText::new("ELF file is not found").color(Color32::RED));
+            } else if is_not_elf_file {
+                ui.label(RichText::new("This file is ELF file").color(Color32::RED));
             }
         });
 
