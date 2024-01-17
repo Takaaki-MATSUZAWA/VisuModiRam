@@ -97,9 +97,11 @@ impl SettingTab {
                         self.symbol_search.gdb_parser = Some(gdb_parser);
                         if let Some(gdb_parser) = &mut self.symbol_search.gdb_parser {
                             gdb_parser.scan_variables_none_blocking_start();
+                            #[cfg(debug_assertions)]
                             println!("scan start");
                         }
                     } else {
+                        #[cfg(debug_assertions)]
                         println!("failed file load");
                     }
                 }
@@ -108,7 +110,7 @@ impl SettingTab {
             if !is_elf_file_exixt {
                 ui.label(RichText::new("ELF file is not found").color(Color32::RED));
             } else if is_not_elf_file {
-                ui.label(RichText::new("This file is ELF file").color(Color32::RED));
+                ui.label(RichText::new("Not ELF file").color(Color32::RED));
             }
         });
 

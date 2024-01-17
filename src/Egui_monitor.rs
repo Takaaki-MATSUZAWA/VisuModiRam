@@ -35,6 +35,14 @@ enum Command {
     ResetEverything,
 }
 // ----------------------------------------------------------------------------
+#[derive(Clone, Copy, Debug)]
+#[must_use]
+enum Dialog {
+    None,
+    Reset,
+    FaildLoadSaveData,
+}
+// ----------------------------------------------------------------------------
 
 /// The state that we persist (serialize).
 #[derive(Default)]
@@ -49,7 +57,7 @@ pub struct State {
 pub struct STM32EguiMonitor {
     state: State,
 
-    open_dialog: bool,
+    open_dialog: Dialog,
 }
 
 use egui_modal::Modal;
@@ -64,7 +72,7 @@ impl STM32EguiMonitor {
         #[allow(unused_mut)]
         let mut slf = Self {
             state: State::default(),
-            open_dialog: false,
+            open_dialog: Dialog::None,
         };
 
         #[cfg(feature = "persistence")]
@@ -137,7 +145,7 @@ impl STM32EguiMonitor {
 
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             if ui.button("Reset All layout").clicked() {
-                self.open_dialog = true;
+                self.open_dialog = Dialog::Reset;
             }
             ui.separator();
             if ui.button("Load layout").clicked() {
@@ -148,7 +156,8 @@ impl STM32EguiMonitor {
                     if let Ok(load_data) = self::load_layout(path) {
                         self.state = load_data;
                     } else {
-                        println!("faild load layout");
+                        //println!("faild load layout");
+                        self.open_dialog = Dialog::FaildLoadSaveData;
                     }
                 }
             }
@@ -159,7 +168,7 @@ impl STM32EguiMonitor {
                     .add_filter("Layout file", &["ron"])
                     .save_file()
                 {
-                    println!("{:?}", path);
+                    //println!("{:?}", path);
                     let mut path_with_extension = path.clone();
                     if !path.to_str().map_or(false, |s| s.ends_with(".ron")) {
                         path_with_extension = path.with_extension("ron");
@@ -170,8 +179,10 @@ impl STM32EguiMonitor {
             ui.separator();
         });
 
-        if self.open_dialog {
-            self.reset_dialog_ui(ui.ctx(), cmd);
+        match self.open_dialog{
+            Dialog::Reset => self.reset_dialog_ui(ui.ctx(), cmd),
+            Dialog::FaildLoadSaveData => self.faild_load_save_data_dialog_ui(ui.ctx(), cmd),
+            _ => {},
         }
     }
 
@@ -192,12 +203,33 @@ impl STM32EguiMonitor {
             });
             modal.buttons(ui, |ui| {
                 if modal.button(ui, "cancel").clicked() {
-                    self.open_dialog = false;
+                    self.open_dialog = Dialog::None;
                 };
                 if modal.button(ui, "All Reset").clicked() {
                     *cmd = Command::ResetEverything;
                     ui.close_menu();
-                    self.open_dialog = false;
+                    self.open_dialog = Dialog::None;
+                };
+            });
+        });
+
+        modal.open();
+    }
+
+    fn faild_load_save_data_dialog_ui(&mut self, ctx: &egui::Context, _cmd: &mut Command) {
+        let modal = Modal::new(ctx, "reset_dialog");
+
+        modal.show(|ui| {
+            modal.title(ui, "Error!");
+            modal.frame(ui, |ui| {
+                modal.body(
+                    ui,
+                    "Failed to load layout save data.",
+                );
+            });
+            modal.buttons(ui, |ui| {
+                if modal.button(ui, "Accept").clicked() {
+                    self.open_dialog = Dialog::None;
                 };
             });
         });
@@ -247,9 +279,9 @@ impl eframe::App for STM32EguiMonitor {
 
 pub fn save_layout<T: serde::Serialize>(save_file: PathBuf, value: &T) {
     let serialized = ron::ser::to_string(&value).expect("Failed to serialize state");
-    println!("serialized!!!");
+    //println!("serialized!!!");
     std::fs::write(save_file, serialized).expect("Failed to write to file");
-    println!("saved!!!");
+    //println!("saved!!!");
 }
 
 pub fn load_layout<T: serde::de::DeserializeOwned>(load_file: PathBuf) -> Result<T, String> {

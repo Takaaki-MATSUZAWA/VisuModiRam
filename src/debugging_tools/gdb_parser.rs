@@ -6,6 +6,7 @@ use std::error;
 use std::fmt;
 use std::io;
 use std::io::{BufRead, BufReader, BufWriter, Write};
+use std::os::windows::process::CommandExt;
 use std::path::PathBuf;
 use std::process;
 use std::result;
@@ -163,7 +164,9 @@ impl GdbParser {
             .stdout(process::Stdio::piped())
             .stdin(process::Stdio::piped())
             .stderr(process::Stdio::piped())
+            .creation_flags(0x08000000)
             .spawn()?;
+
 
         let mut result = GdbParser {
             stdin: Arc::new(Mutex::new(BufWriter::new(

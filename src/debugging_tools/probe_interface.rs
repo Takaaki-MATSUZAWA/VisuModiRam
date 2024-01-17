@@ -125,6 +125,7 @@ impl ProbeInterface {
                     ) {
                         Ok(_) => {}
                         Err(e) => {
+                            #[cfg(debug_assertions)]
                             println!("測定値の保存中にエラーが発生しました: {}", e);
                         }
                     }
@@ -244,6 +245,7 @@ impl ProbeInterface {
         
         let res = flashing::download_file(&mut session, elf_path, flashing::Format::Elf);
             //.map_err(|e| probe_rs::Error::from(DebugProbeError::Other(e.to_string())))?;
+        #[cfg(debug_assertions)]
         println!("flash {:?}",res);
 
         // Reset target according to CLI options
