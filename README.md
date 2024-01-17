@@ -3,7 +3,7 @@
 Debugging tools for STM32 to visualize and modify variables
 
 ## 概要
-- (STM32CubeMonitor)[https://www.st.com/ja/development-tools/stm32cubemonitor.html] を真似て作ったソフト
+- [STM32CubeMonitor](https://www.st.com/ja/development-tools/stm32cubemonitor.html)を真似て作ったソフト
 - Rust + Eguiで実装されている
 - 名前は後で変える予定
 
@@ -14,12 +14,12 @@ Debugging tools for STM32 to visualize and modify variables
 - それらのレイアウトを自由に変更できる
 
 ## 環境構築
-- (Arm GNU Toolchain)[https://developer.arm.com/downloads/-/gnu-rm] のインストール
+- [Arm GNU Toolchain](https://developer.arm.com/downloads/-/gnu-rm)のインストール
     - 上記のリンクから環境に合わせてインストール
-        - windowsで(Chocolatey)[https://community.chocolatey.org/] を導入済みの場合は`choco install gcc-arm-embedded`でインストール
+        - windowsで[Chocolatey](https://community.chocolatey.org/)を導入済みの場合は`choco install gcc-arm-embedded`でインストール
     - "arm-none-eabi-gdb.exe"が使えるように環境変数などでパスを通しておく
 - Rustの環境構築
-    - (rustup)[https://www.rust-lang.org/tools/install] から"DOWNLOAD RUSTUP-INIT.EXE(64-BIT)"をダウンロード＆インストール
+    - [rustup](https://www.rust-lang.org/tools/install)から"DOWNLOAD RUSTUP-INIT.EXE(64-BIT)"をダウンロード＆インストール
         - `cargo -V`などでコマンドが通ることを確認 
 - probe-rsのインストール
     - `cargo install probe-rs --features cli`
