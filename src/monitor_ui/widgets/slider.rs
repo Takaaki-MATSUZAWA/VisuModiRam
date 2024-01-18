@@ -168,8 +168,10 @@ impl super::WidgetApp for Sliders {
     fn fetch_watch_list(&mut self, watch_list: &Vec<crate::debugging_tools::VariableInfo>) {
         self.mcu.fetch_watch_list(watch_list);
         for symbol in watch_list {
-            self.sliders
-                .insert(symbol.name.clone(), SliderSetting::default());
+            if !self.sliders.contains_key(&symbol.name) {
+                self.sliders
+                    .insert(symbol.name.clone(), SliderSetting::default());
+            }
         }
     }
 

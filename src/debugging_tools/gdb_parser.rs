@@ -167,7 +167,6 @@ impl GdbParser {
             .creation_flags(0x08000000)
             .spawn()?;
 
-
         let mut result = GdbParser {
             stdin: Arc::new(Mutex::new(BufWriter::new(
                 child.stdin.take().expect("broken stdin"),

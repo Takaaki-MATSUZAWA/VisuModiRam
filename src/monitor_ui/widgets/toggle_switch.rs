@@ -142,8 +142,10 @@ impl super::WidgetApp for ToggleSwitch {
     fn fetch_watch_list(&mut self, watch_list: &Vec<crate::debugging_tools::VariableInfo>) {
         self.mcu.fetch_watch_list(watch_list);
         for symbol in watch_list {
-            self.toggle_sw
-                .insert(symbol.name.clone(), ToggleSwitchSetting::default());
+            if !self.toggle_sw.contains_key(&symbol.name) {
+                self.toggle_sw
+                    .insert(symbol.name.clone(), ToggleSwitchSetting::default());
+            }
         }
     }
 

@@ -19,6 +19,7 @@ struct SymbolSearch {
     selected_list: Vec<SelectableVariableInfo>,
     #[cfg_attr(feature = "serde", serde(skip))]
     gdb_parser: Option<GdbParser>,
+    project_name: String,
     target_mcu_id: String,
 }
 
@@ -59,6 +60,7 @@ impl eframe::App for SettingTab {
 // ----------------------------------------------------------------------------
 impl SettingTab {
     fn symbol_search_ui(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
+        let mut download_enable = false;
         ui.heading("ELF file loader");
         ui.horizontal(|ui| {
             ui.label("Path to ELF file :");
@@ -100,6 +102,17 @@ impl SettingTab {
                             #[cfg(debug_assertions)]
                             println!("scan start");
                         }
+
+                        let path_parts: Vec<&str> = elf_path.split("\\").collect();
+                        let file_name = path_parts.last().unwrap_or(&"");
+                        let path_parts: Vec<&str> = file_name.split("/").collect();
+                        let file_name = path_parts.last().unwrap_or(&"");
+                        self.symbol_search.project_name = file_name.to_string();
+                        self.symbol_search.project_name = self
+                            .symbol_search
+                            .project_name
+                            .trim_end_matches(".elf")
+                            .to_string();
                     } else {
                         #[cfg(debug_assertions)]
                         println!("failed file load");
@@ -111,18 +124,28 @@ impl SettingTab {
                 ui.label(RichText::new("ELF file is not found").color(Color32::RED));
             } else if is_not_elf_file {
                 ui.label(RichText::new("Not ELF file").color(Color32::RED));
+            } else {
+                if self.probe_setting.probes.len() > 0 {
+                    download_enable = true;
+                }
             }
         });
 
         //TODO:非同期にする
-        if ui.button("Download").clicked() {
-            let elf_path = format!("{}", shellexpand::tilde(&self.symbol_search.input_elf_path));
+        if ui
+            .add_enabled(download_enable, egui::Button::new("Download"))
+            .clicked()
+        {
+            if self.probe_setting.probes.len() > 0 {
+                let elf_path =
+                    format!("{}", shellexpand::tilde(&self.symbol_search.input_elf_path));
 
-            let setting = self.get_watch_setting();
-            let mut probe_if = ProbeInterface::default();
-            let _ = probe_if.set_probe(setting);
-            
-            let _ = probe_if.flash(PathBuf::from(&elf_path));
+                let setting = self.get_watch_setting();
+                let mut probe_if = ProbeInterface::default();
+                let _ = probe_if.set_probe(setting);
+
+                let _ = probe_if.flash(PathBuf::from(&elf_path));
+            }
         }
 
         let mut prgres_text = "  Please load ELF file...";
@@ -159,10 +182,17 @@ impl SettingTab {
 
         ui.separator();
         ui.heading("Infomation");
-        ui.label("Project Name : ");
+        ui.label(format!(
+            "Project Name : {}",
+            self.symbol_search.project_name
+        ));
         ui.horizontal(|ui| {
             ui.label("Target MCU : ");
             ui.text_edit_singleline(&mut self.symbol_search.target_mcu_id);
+
+            if self.symbol_search.target_mcu_id == "" {
+                ui.label(RichText::new("Please input Target MCU name").color(Color32::RED));
+            }
         });
 
         ui.separator();

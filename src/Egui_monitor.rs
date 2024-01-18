@@ -179,10 +179,10 @@ impl STM32EguiMonitor {
             ui.separator();
         });
 
-        match self.open_dialog{
+        match self.open_dialog {
             Dialog::Reset => self.reset_dialog_ui(ui.ctx(), cmd),
             Dialog::FaildLoadSaveData => self.faild_load_save_data_dialog_ui(ui.ctx(), cmd),
-            _ => {},
+            _ => {}
         }
     }
 
@@ -222,10 +222,7 @@ impl STM32EguiMonitor {
         modal.show(|ui| {
             modal.title(ui, "Error!");
             modal.frame(ui, |ui| {
-                modal.body(
-                    ui,
-                    "Failed to load layout save data.",
-                );
+                modal.body(ui, "Failed to load layout save data.");
             });
             modal.buttons(ui, |ui| {
                 if modal.button(ui, "Accept").clicked() {
