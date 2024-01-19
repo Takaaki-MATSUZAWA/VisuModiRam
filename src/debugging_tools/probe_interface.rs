@@ -1,5 +1,8 @@
 use super::gdb_parser::VariableInfo;
-use probe_rs::{flashing, DebugProbeError, Permissions, Probe};
+use probe_rs::{
+    flashing::{self, DownloadOptions, FlashProgress},
+    DebugProbeError, Permissions, Probe,
+};
 use sensorlog::{logfile_config::LogfileConfig, measure::Measurement, quota, Sensorlog};
 use shellexpand;
 use std::collections::BTreeMap;
@@ -8,7 +11,7 @@ use std::sync::{Arc, Mutex};
 use stopwatch::Stopwatch;
 
 use super::memory_interface::MCUMemory;
-
+// ----------------------------------------------------------------------------
 #[derive(Default, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct WatchSetting {
@@ -16,12 +19,43 @@ pub struct WatchSetting {
     pub probe_sn: String,
     pub watch_list: Vec<VariableInfo>,
 }
+// ----------------------------------------------------------------------------
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum FlashProgressState {
+    None,
+    Erasing,
+    Programing,
+    Finished,
 
+    Failed,
+}
+
+impl std::fmt::Display for FlashProgressState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+
+impl Default for FlashProgressState {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+#[derive(Default, Copy, Clone, Debug, PartialEq)]
+pub struct Progress {
+    pub state: FlashProgressState,
+    pub progress: f64,
+}
+
+// ----------------------------------------------------------------------------
 #[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(default))]
 pub struct ProbeInterface {
     pub setting: WatchSetting,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    flash_progress: Arc<Mutex<Progress>>,
 
     #[cfg_attr(feature = "serde", serde(skip))]
     watching_flag: Arc<Mutex<bool>>,
@@ -53,6 +87,7 @@ impl Default for ProbeInterface {
             log_service: Arc::new(Mutex::new(log_service_default())),
             write_que: Arc::new(Mutex::new(BTreeMap::new())),
             log_timer: Arc::new(Mutex::new(Stopwatch::new())),
+            flash_progress: Arc::new(Mutex::new(Default::default())),
         }
     }
 }
@@ -124,9 +159,9 @@ impl ProbeInterface {
                         &val_str,
                     ) {
                         Ok(_) => {}
-                        Err(e) => {
+                        Err(_e) => {
                             #[cfg(debug_assertions)]
-                            println!("測定値の保存中にエラーが発生しました: {}", e);
+                            println!("測定値の保存中にエラーが発生しました: {}", _e);
                         }
                     }
                 }
@@ -220,40 +255,113 @@ impl ProbeInterface {
             .insert(symbol.clone(), data.to_string());
     }
 
-    pub fn flash(&mut self, elf_path: PathBuf) -> Result<(), probe_rs::Error> {
+    pub fn get_flash_progress(&mut self) -> Progress {
+        self.flash_progress.lock().unwrap().clone()
+    }
+
+    //pub fn flash(&mut self, elf_path: PathBuf) -> Result<(), probe_rs::Error> {
+    pub fn flash(
+        &mut self,
+        elf_path: PathBuf,
+    ) -> std::thread::JoinHandle<Result<(), probe_rs::Error>> {
         let probes = Probe::list_all();
         let setting = self.setting.clone();
 
         if self.now_watching() {
-            return Err(probe_rs::Error::Probe(DebugProbeError::Attached));
+            let err = Err(probe_rs::Error::Probe(DebugProbeError::Attached));
+            return std::thread::spawn(move || err);
         }
 
-        let probe = probes
-            .into_iter()
-            .find(|probe| probe.serial_number == Some(setting.probe_sn.clone()))
-            .ok_or_else(|| {
-                std::io::Error::new(std::io::ErrorKind::Other, "No matching probe found")
-            })
-            .unwrap()
-            .open()
-            .unwrap();
+        let progress_clone = Arc::clone(&self.flash_progress);
 
-        // Attach to a chip.
-        let mut session = probe.attach(setting.target_mcu.clone(), Permissions::default())?;
-        //.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+        std::thread::spawn(move || {
+            let probe = probes
+                .into_iter()
+                .find(|probe| probe.serial_number == Some(setting.probe_sn.clone()))
+                .ok_or_else(|| {
+                    std::io::Error::new(std::io::ErrorKind::Other, "No matching probe found")
+                })
+                .unwrap()
+                .open()
+                .unwrap();
 
-        let res = flashing::download_file(&mut session, elf_path, flashing::Format::Elf);
-        //.map_err(|e| probe_rs::Error::from(DebugProbeError::Other(e.to_string())))?;
-        #[cfg(debug_assertions)]
-        println!("flash {:?}", res);
+            // Attach to a chip.
+            let mut session = probe.attach(setting.target_mcu.clone(), Permissions::default())?;
 
-        // Reset target according to CLI options
-        {
-            let mut core = session.core(0)?;
+            let total_page_size = Arc::new(Mutex::new(0u32));
+            let total_sector_size = Arc::new(Mutex::new(0u64));
 
-            core.reset()?;
-        }
-        Ok(())
+            // Register callback to update the progress.
+            let progress = FlashProgress::new(move |event| {
+                let mut progress = progress_clone.lock().unwrap();
+                let mut total_page_size = total_page_size.lock().unwrap();
+                let mut total_sector_size = total_sector_size.lock().unwrap();
+
+                use flashing::ProgressEvent::*;
+                match event {
+                    Initialized { flash_layout } => {
+                        *total_page_size = flash_layout.pages().iter().map(|s| s.size()).sum();
+                        *total_sector_size = flash_layout.sectors().iter().map(|s| s.size()).sum();
+                    }
+                    StartedProgramming => {
+                        progress.state = FlashProgressState::Programing;
+                        progress.progress = 0.0;
+                    }
+                    StartedErasing => {
+                        progress.state = FlashProgressState::Erasing;
+                        progress.progress = 0.0;
+                    }
+                    StartedFilling => todo!(),
+
+                    PageProgrammed { size, .. } => {
+                        progress.progress += (size as f64) / (total_page_size.clone() as f64);
+                    }
+                    SectorErased { size, .. } => {
+                        progress.progress += (size as f64) / (total_sector_size.clone() as f64);
+                    }
+                    PageFilled { .. }  => todo!(),
+
+                    FailedErasing => {
+                        progress.state = FlashProgressState::Failed;
+                    }
+                    FinishedErasing => {
+                        progress.state = FlashProgressState::Failed;
+                    }
+                    FailedProgramming => {
+                        progress.state = FlashProgressState::Failed;
+                    }
+                    FinishedProgramming => {
+                        progress.state = FlashProgressState::Finished;
+                    }
+                    FailedFilling => {
+                        progress.state = FlashProgressState::Failed;
+                    }
+                    FinishedFilling  => todo!(),
+                    DiagnosticMessage { .. } => todo!(),
+                }
+            });
+
+            let mut options = DownloadOptions::default();
+            options.progress = Some(progress);
+
+            let _res = flashing::download_file_with_options(
+                &mut session,
+                elf_path,
+                flashing::Format::Elf,
+                options,
+            );
+
+            #[cfg(debug_assertions)]
+            println!("flash {:?}", _res);
+
+            // Reset target according to CLI options
+            {
+                let mut core = session.core(0)?;
+
+                core.reset()?;
+            }
+            Ok(())
+        })
     }
 }
 

@@ -29,6 +29,9 @@ struct ProbeSetting {
     #[cfg_attr(feature = "serde", serde(skip))]
     probes: Vec<probe_rs::DebugProbeInfo>,
     select_sn: Option<String>,
+
+    #[cfg_attr(feature = "serde", serde(skip))]
+    flash_probe_if: ProbeInterface,
 }
 
 // ----------------------------------------------------------------------------
@@ -131,7 +134,6 @@ impl SettingTab {
             }
         });
 
-        //TODO:非同期にする
         if ui
             .add_enabled(download_enable, egui::Button::new("Download"))
             .clicked()
@@ -141,10 +143,10 @@ impl SettingTab {
                     format!("{}", shellexpand::tilde(&self.symbol_search.input_elf_path));
 
                 let setting = self.get_watch_setting();
-                let mut probe_if = ProbeInterface::default();
-                let _ = probe_if.set_probe(setting);
-
-                let _ = probe_if.flash(PathBuf::from(&elf_path));
+                let _ = self.probe_setting.flash_probe_if.set_probe(setting);
+                self.probe_setting
+                    .flash_probe_if
+                    .flash(PathBuf::from(&elf_path));
             }
         }
 
@@ -157,9 +159,9 @@ impl SettingTab {
             prgress_anime = true;
 
             if now_progress < 1.0 {
-                prgres_text = "Loading...";
+                prgres_text = "Symbol Search: Loading...";
             } else {
-                prgres_text = "complete";
+                prgres_text = "Symbol Search: complete";
                 prgress_anime = false;
 
                 if self.symbol_search.variable_list.is_empty() {
@@ -172,6 +174,35 @@ impl SettingTab {
                     }
                 }
             }
+        }
+        
+        if self.probe_setting.flash_probe_if.get_flash_progress().state
+            != FlashProgressState::None
+        {
+            let flash_progress = self.probe_setting.flash_probe_if.get_flash_progress();
+            now_progress = flash_progress.progress as f32;
+            use FlashProgressState::*;
+            match flash_progress.state {
+                None => {}
+                Erasing => {
+                    prgres_text = "Flash: Erasing...";
+                    prgress_anime = true;
+                }
+                Programing => {
+                    prgres_text = "Flash: Programing...";
+                    prgress_anime = true;
+                }
+                Finished => {
+                    prgres_text = "Flash: Complete!";
+                    prgress_anime = false;
+
+                    now_progress = 1.0;
+                }
+                Failed => {
+                    prgres_text = "Flash: Failed !!!";
+                    prgress_anime = false;
+                }
+            };
         }
 
         ui.add(
