@@ -35,12 +35,86 @@ struct ProbeSetting {
 }
 
 // ----------------------------------------------------------------------------
+#[derive(PartialEq, Clone, Copy)]
+enum ProgresState {
+    None,
+    SymbolSearching,
+    SymbolSearchComplite,
+    ElfFlashErasing,
+    ElfFlashWriteing,
+    ElfFlashComplite,
+    ElfFlashFaild,
+}
 
+impl Default for ProgresState {
+    fn default() -> Self {
+        Self::None
+    }
+}
+// ----------------------------------------------------------------------------
+#[derive(Default)]
+struct PrgressBarContext {
+    state: ProgresState,
+    progress: f32,
+}
+
+impl PrgressBarContext {
+    pub fn show(&mut self, ui: &mut egui::Ui) {
+        use ProgresState::*;
+        let text = match self.state {
+            None => "  Please load ELF file...".to_string(),
+            SymbolSearching => "Symbol Search: Loading...".to_string(),
+            SymbolSearchComplite => "Symbol Search: complete".to_string(),
+            ElfFlashErasing => "Flash: Erasing...".to_string(),
+            ElfFlashWriteing => "Flash: Programing...".to_string(),
+            ElfFlashComplite => "Flash: Complete!".to_string(),
+            ElfFlashFaild => "Flash: Failed !!!".to_string(),
+        };
+
+        let animete = self.state == SymbolSearching
+            || self.state == ElfFlashErasing
+            || self.state == ElfFlashWriteing;
+
+        ui.add(
+            egui::ProgressBar::new(self.progress)
+                .text(text.as_str())
+                .animate(animete),
+        );
+    }
+
+    pub fn set_progress(&mut self, state: ProgresState, progress: f32) {
+        self.state = state;
+        self.progress = progress;
+    }
+
+    pub fn complete(&mut self, next_state: ProgresState) {
+        use ProgresState::*;
+        let tmp_state = self.state.clone();
+
+        if tmp_state == SymbolSearching && next_state == SymbolSearchComplite {
+            self.state = SymbolSearchComplite;
+            self.progress = 1.0;
+        }
+
+        if tmp_state == ElfFlashWriteing && next_state == ElfFlashComplite {
+            self.state = ElfFlashComplite;
+            self.progress = 1.0;
+        }
+    }
+
+    pub fn faild(&mut self) {
+        self.state = ProgresState::ElfFlashFaild;
+    }
+}
+// ----------------------------------------------------------------------------
 #[derive(Default)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct SettingTab {
     symbol_search: SymbolSearch,
     probe_setting: ProbeSetting,
+
+    #[cfg_attr(feature = "serde", serde(skip))]
+    progress_bar: PrgressBarContext,
 }
 
 impl eframe::App for SettingTab {
@@ -150,20 +224,13 @@ impl SettingTab {
             }
         }
 
-        let mut prgres_text = "  Please load ELF file...";
-        let mut now_progress = 0.0;
-        let mut prgress_anime = false;
-
         if let Some(gdb_parser) = &mut self.symbol_search.gdb_parser {
-            now_progress = gdb_parser.get_scan_progress();
-            prgress_anime = true;
+            let now_progress = gdb_parser.get_scan_progress();
 
             if now_progress < 1.0 {
-                prgres_text = "Symbol Search: Loading...";
+                self.progress_bar
+                    .set_progress(ProgresState::SymbolSearching, now_progress);
             } else {
-                prgres_text = "Symbol Search: complete";
-                prgress_anime = false;
-
                 if self.symbol_search.variable_list.is_empty() {
                     self.symbol_search.variable_list = gdb_parser.load_variable_list();
                     if !self.symbol_search.variable_list.is_empty() {
@@ -171,45 +238,42 @@ impl SettingTab {
                             &self.symbol_search.variable_list,
                             &mut self.symbol_search.selected_list,
                         );
+                        self.progress_bar
+                            .complete(ProgresState::SymbolSearchComplite);
                     }
                 }
             }
         }
-        
-        if self.probe_setting.flash_probe_if.get_flash_progress().state
-            != FlashProgressState::None
+
+        if self.probe_setting.flash_probe_if.get_flash_progress().state != FlashProgressState::None
         {
             let flash_progress = self.probe_setting.flash_probe_if.get_flash_progress();
-            now_progress = flash_progress.progress as f32;
+
             use FlashProgressState::*;
             match flash_progress.state {
                 None => {}
                 Erasing => {
-                    prgres_text = "Flash: Erasing...";
-                    prgress_anime = true;
+                    self.progress_bar.set_progress(
+                        ProgresState::ElfFlashErasing,
+                        flash_progress.progress as f32,
+                    );
                 }
                 Programing => {
-                    prgres_text = "Flash: Programing...";
-                    prgress_anime = true;
+                    self.progress_bar.set_progress(
+                        ProgresState::ElfFlashWriteing,
+                        flash_progress.progress as f32,
+                    );
                 }
                 Finished => {
-                    prgres_text = "Flash: Complete!";
-                    prgress_anime = false;
-
-                    now_progress = 1.0;
+                    self.progress_bar.complete(ProgresState::ElfFlashComplite);
                 }
                 Failed => {
-                    prgres_text = "Flash: Failed !!!";
-                    prgress_anime = false;
+                    self.progress_bar.faild();
                 }
             };
         }
 
-        ui.add(
-            egui::ProgressBar::new(now_progress)
-                .text(prgres_text)
-                .animate(prgress_anime),
-        );
+        self.progress_bar.show(ui);
 
         ui.separator();
         ui.heading("Infomation");

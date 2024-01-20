@@ -311,16 +311,14 @@ impl ProbeInterface {
                         progress.state = FlashProgressState::Erasing;
                         progress.progress = 0.0;
                     }
-                    StartedFilling => todo!(),
-
+                    StartedFilling => {}
                     PageProgrammed { size, .. } => {
                         progress.progress += (size as f64) / (total_page_size.clone() as f64);
                     }
                     SectorErased { size, .. } => {
                         progress.progress += (size as f64) / (total_sector_size.clone() as f64);
                     }
-                    PageFilled { .. }  => todo!(),
-
+                    PageFilled { .. } => {}
                     FailedErasing => {
                         progress.state = FlashProgressState::Failed;
                     }
@@ -336,7 +334,7 @@ impl ProbeInterface {
                     FailedFilling => {
                         progress.state = FlashProgressState::Failed;
                     }
-                    FinishedFilling  => todo!(),
+                    FinishedFilling => {}
                     DiagnosticMessage { .. } => todo!(),
                 }
             });
