@@ -461,12 +461,27 @@ pub fn search_target_mcu_name(elf_file_path: &PathBuf) -> Option<String> {
         project_dir = path.parent();
     }
 
+    // STM32Cube用のiocファイルからDeviceIdを特定
     let ioc_file_path = project_dir?.join(format!("{}.ioc", &project_name));
     if ioc_file_path.is_file() {
         let content = std::fs::read_to_string(&ioc_file_path).ok()?;
         for line in content.lines() {
             if line.starts_with("ProjectManager.DeviceId=") {
                 return Some(line["ProjectManager.DeviceId=".len()..].to_string());
+            }
+        }
+    }
+
+    // build.ninjaのstartup_~~~.sからDeviceIdを特定
+    let ninja_build_file_path = elf_file_path.parent()?.join("build.ninja");
+    println!("ninja_build_file_path --> {:?}",ninja_build_file_path);
+    if ninja_build_file_path.is_file() {
+        let content = std::fs::read_to_string(&ninja_build_file_path).ok()?;
+        for line in content.lines() {
+            if line.contains("startup_") {
+                let device_id_start = line.find("startup_").unwrap() + "startup_".len();
+                let device_id_end = line.find(".s.obj").unwrap();
+                return Some(line[device_id_start..device_id_end].to_string());
             }
         }
     }
