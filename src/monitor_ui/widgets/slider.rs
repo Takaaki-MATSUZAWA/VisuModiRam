@@ -20,9 +20,9 @@ impl Default for SliderSetting {
     fn default() -> Self {
         Self {
             min: 0.0,
-            max: 125.0,
-            step: 10.0,
-            use_steps: false,
+            max: 255.0,
+            step: 1.0,
+            use_steps: true,
             value: 0.0,
         }
     }
@@ -201,6 +201,23 @@ impl super::WidgetApp for Sliders {
             }
 
             self.sliders.insert(symbol.name, sldr);
+        }
+    }
+
+    fn send_button_enable(&self) -> bool {
+        true
+    }
+
+    fn send_last_value(&mut self) {
+        for sldr in self.sliders.clone() {
+            let key = sldr.0.clone();
+            let value = sldr.1.value.clone();
+            let view_list = self.mcu.watch_list.clone();
+            if let Some(variable_info) = view_list.iter().find(|&v| v.name == key) {
+                if let Some(probe) = &mut self.mcu.probe {
+                    probe.insert_wirte_que(variable_info, format!("{}", value).as_str());
+                }
+            }
         }
     }
 }

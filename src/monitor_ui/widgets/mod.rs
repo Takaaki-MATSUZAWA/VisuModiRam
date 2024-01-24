@@ -52,11 +52,18 @@ pub trait WidgetApp: serde_traitobject::Serialize + serde_traitobject::Deseriali
         false
     }
 
+    // send last value buttun
+    fn send_button_enable(&self) -> bool {
+        false
+    }
+
     fn disalbe_scroll_area(&self) -> bool {
         false
     }
 
     fn sync(&mut self) {}
+
+    fn send_last_value(&mut self) {}
 }
 // ----------------------------------------------------------------------------
 
@@ -198,8 +205,14 @@ impl WidgetWindow {
                 if ui.button("Sync from MCU").clicked() {
                     self.state.monitor_tab.sync();
                 }
+                ui.separator();
             }
-            ui.separator();
+            if self.state.monitor_tab.send_button_enable() {
+                if ui.button("Send to MCU").clicked() {
+                    self.state.monitor_tab.send_last_value();
+                }
+                ui.separator();
+            }
         });
 
         if let Some(anchor) = new_anchor {

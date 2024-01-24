@@ -474,7 +474,7 @@ pub fn search_target_mcu_name(elf_file_path: &PathBuf) -> Option<String> {
 
     // build.ninjaのstartup_~~~.sからDeviceIdを特定
     let ninja_build_file_path = elf_file_path.parent()?.join("build.ninja");
-    println!("ninja_build_file_path --> {:?}",ninja_build_file_path);
+    println!("ninja_build_file_path --> {:?}", ninja_build_file_path);
     if ninja_build_file_path.is_file() {
         let content = std::fs::read_to_string(&ninja_build_file_path).ok()?;
         for line in content.lines() {
