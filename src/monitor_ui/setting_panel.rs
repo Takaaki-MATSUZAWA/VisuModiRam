@@ -21,6 +21,9 @@ struct SymbolSearch {
     gdb_parser: Option<GdbParser>,
     project_name: String,
     target_mcu_id: String,
+
+    rom_size: f64,
+    ram_size: f64,
 }
 
 #[derive(Default)]
@@ -168,6 +171,8 @@ impl SettingTab {
                         crate::debugging_tools::search_target_mcu_name(&PathBuf::from(&elf_path))
                     {
                         self.symbol_search.target_mcu_id = mcu_id;
+                    } else {
+                        self.symbol_search.target_mcu_id = "".to_string();
                     }
 
                     if let Ok(gdb_parser) = GdbParser::launch(&PathBuf::from(&elf_path)) {
@@ -240,6 +245,16 @@ impl SettingTab {
                         );
                         self.progress_bar
                             .complete(ProgresState::SymbolSearchComplite);
+
+                        let elf_path =
+                            format!("{}", shellexpand::tilde(&self.symbol_search.input_elf_path));
+                        if let Ok(res) = Self::get_memory_usage(&PathBuf::from(&elf_path)) {
+                            self.symbol_search.rom_size = res.0;
+                            self.symbol_search.ram_size = res.1;
+                        } else {
+                            self.symbol_search.rom_size = 0.0;
+                            self.symbol_search.ram_size = 0.0;
+                        }
                     }
                 }
             }
@@ -289,6 +304,9 @@ impl SettingTab {
                 ui.label(RichText::new("Please input Target MCU name").color(Color32::RED));
             }
         });
+        ui.label("Memory usage");
+        ui.label(format!("  ROM : {:.2} KByte", self.symbol_search.rom_size));
+        ui.label(format!("  RAM : {:.2} KByte", self.symbol_search.ram_size));
 
         ui.separator();
         ui.heading("Variable list");
@@ -545,5 +563,36 @@ impl SettingTab {
             probe_sn: self.probe_setting.select_sn.clone().unwrap_or_default(),
             watch_list: self.get_watch_list(),
         }
+    }
+
+    fn get_memory_usage(elf_file_path: &PathBuf) -> Result<(f64, f64)> {
+        let output = std::process::Command::new("arm-none-eabi-size")
+            .arg(elf_file_path)
+            .output()?;
+
+        if !output.status.success() {
+            //return Err(gdb_parser::Error::ParseError::new("arm-none-eabi-size コマンドの実行に失敗しました".to_string()));
+            return Err(Error::ParseError);
+        }
+
+        let output_str = String::from_utf8_lossy(&output.stdout);
+        let lines: Vec<&str> = output_str.trim().split('\n').collect();
+        if lines.len() < 2 {
+            //return Err("予期せぬ出力形式です".to_string());
+            return Err(Error::ParseError);
+        }
+
+        let values: Vec<&str> = lines[1].split_whitespace().collect();
+        if values.len() < 4 {
+            //return Err("予期せぬ出力形式です".to_string());
+            return Err(Error::ParseError);
+        }
+
+        let text = values[0].parse::<f64>().unwrap() / 1024.0;
+        let data = values[1].parse::<f64>().unwrap() / 1024.0;
+        let bss = values[2].parse::<f64>().unwrap() / 1024.0;
+
+        // ROM size, RAM size
+        Ok((text + data, data + bss))
     }
 }
