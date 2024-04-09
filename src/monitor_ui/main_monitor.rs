@@ -25,6 +25,10 @@ pub struct MainMonitorTab {
 
 impl eframe::App for MainMonitorTab {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        if self.probe_if.now_watching() == true {
+            ctx.request_repaint();
+        }
+
         egui::SidePanel::left("control")
             .resizable(true)
             .default_width(150.0)

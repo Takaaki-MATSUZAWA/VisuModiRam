@@ -566,7 +566,8 @@ impl SettingTab {
     }
 
     fn get_memory_usage(elf_file_path: &PathBuf) -> Result<(f64, f64)> {
-        let output = std::process::Command::new("arm-none-eabi-size")
+        let name = ::std::env::var("SIZE_ARM_BINARY").unwrap_or("arm-none-eabi-size".to_string());
+        let output = std::process::Command::new(name)
             .arg(elf_file_path)
             .output()?;
 

@@ -251,9 +251,7 @@ impl eframe::App for STM32EguiMonitor {
         eframe::set_value(storage, eframe::APP_KEY, &self.state);
     }
 
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        ctx.request_repaint();
-
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) { 
         #[cfg(not(target_arch = "wasm32"))]
         if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::F11)) {
             let fullscreen = ctx.input(|i| i.viewport().fullscreen.unwrap_or(false));

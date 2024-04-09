@@ -19,7 +19,7 @@ impl MCUMemory {
                     "Parse error for signed char"
                 ))),
             },
-            "unsigned char" => match value_str.parse::<u8>() {
+            "unsigned char" | "bool" => match value_str.parse::<u8>() {
                 Ok(val) => core.write_word_8(symbol.address, val),
                 Err(_) => Err(probe_rs::Error::Other(anyhow::anyhow!(
                     "Parse error for unsigned char"
@@ -112,7 +112,7 @@ impl MCUMemory {
                         .unwrap();
                     format!("{}", val_bits as i8)
                 }
-                "unsigned char" => {
+                "unsigned char" | "bool"  => {
                     let val_bits = core
                         .read_word_8(symbol.address)
                         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))

@@ -454,6 +454,20 @@ pub fn search_target_mcu_name(elf_file_path: &PathBuf) -> Option<String> {
     let project_name = elf_file_path.file_stem()?.to_str()?.to_string();
     let mut project_dir = elf_file_path.parent();
 
+    // build.ninjaのstartup_~~~.sからDeviceIdを特定
+    let ninja_build_file_path = elf_file_path.parent()?.join("build.ninja");
+    println!("ninja_build_file_path --> {:?}", ninja_build_file_path);
+    if ninja_build_file_path.is_file() {
+        let content = std::fs::read_to_string(&ninja_build_file_path).ok()?;
+        for line in content.lines() {
+            if line.contains("startup_") {
+                let device_id_start = line.find("startup_").unwrap() + "startup_".len();
+                let device_id_end = line.find(".s.obj").unwrap();
+                return Some(line[device_id_start..device_id_end].to_string());
+            }
+        }
+    }
+
     while let Some(path) = project_dir {
         if path.file_name()?.to_str()? == project_name {
             break;
@@ -472,18 +486,5 @@ pub fn search_target_mcu_name(elf_file_path: &PathBuf) -> Option<String> {
         }
     }
 
-    // build.ninjaのstartup_~~~.sからDeviceIdを特定
-    let ninja_build_file_path = elf_file_path.parent()?.join("build.ninja");
-    println!("ninja_build_file_path --> {:?}", ninja_build_file_path);
-    if ninja_build_file_path.is_file() {
-        let content = std::fs::read_to_string(&ninja_build_file_path).ok()?;
-        for line in content.lines() {
-            if line.contains("startup_") {
-                let device_id_start = line.find("startup_").unwrap() + "startup_".len();
-                let device_id_end = line.find(".s.obj").unwrap();
-                return Some(line[device_id_start..device_id_end].to_string());
-            }
-        }
-    }
     None
 }
