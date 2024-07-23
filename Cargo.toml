@@ -33,7 +33,7 @@ stopwatch = "0.0.7"
 egui-modal = "0.3.1"
 ron = "0.8.1"
 egui_gauge = "0.1.2"
-ddbug_parser = { git = "https://github.com/gimli-rs/ddbug.git", rev = "2a463a1f0db2a0b2d3eb2b3622099bd0c2ee993f" }
+ddbug_parser = { git = "https://github.com/gimli-rs/ddbug.git", rev = "b7d6d6a0382f2d7e2d7db9b1ed8450a42740e2c7" }
 
 [[bin]]
 name = "STM32EguiMonitor"

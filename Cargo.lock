@@ -1095,7 +1095,7 @@ checksum = "8d7439c3735f405729d52c3fbbe4de140eaf938a1fe47d227c27f8254d4302a5"
 [[package]]
 name = "ddbug_parser"
 version = "0.3.0"
-source = "git+https://github.com/gimli-rs/ddbug.git?rev=2a463a1f0db2a0b2d3eb2b3622099bd0c2ee993f#2a463a1f0db2a0b2d3eb2b3622099bd0c2ee993f"
+source = "git+https://github.com/gimli-rs/ddbug.git?rev=b7d6d6a0382f2d7e2d7db9b1ed8450a42740e2c7#b7d6d6a0382f2d7e2d7db9b1ed8450a42740e2c7"
 dependencies = [
  "fnv",
  "gimli 0.27.3",
@@ -3087,7 +3087,6 @@ checksum = "03b4680b86d9cfafba8fc491dc9b6df26b68cf40e9e6cd73909194759a63c385"
 dependencies = [
  "flate2",
  "memchr",
- "wasmparser",
 ]
 
 [[package]]
@@ -5064,12 +5063,6 @@ name = "wasm-bindgen-shared"
 version = "0.2.87"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca6ad05a4870b2bf5fe995117d3728437bd27d7cd5f06f13c17443ef369775a1"
-
-[[package]]
-name = "wasmparser"
-version = "0.57.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32fddd575d477c6e9702484139cf9f23dcd554b06d185ed0f56c857dd3a47aa6"
 
 [[package]]
 name = "wayland-client"
