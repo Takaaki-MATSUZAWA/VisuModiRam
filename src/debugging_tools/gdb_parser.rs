@@ -6,6 +6,7 @@ use std::error;
 use std::fmt;
 use std::io;
 use std::io::{BufRead, BufReader, BufWriter, Write};
+#[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 use std::path::PathBuf;
 use std::process;
@@ -157,6 +158,7 @@ impl From<io::Error> for Error {
 impl GdbParser {
     pub fn launch(elffile: &PathBuf) -> Result<Self> {
         let name = ::std::env::var("GDB_ARM_BINARY").unwrap_or("arm-none-eabi-gdb".to_string());
+        #[cfg(target_os = "windows")]
         let mut child = process::Command::new(name)
             .args(&["--interpreter=mi"])
             .arg("-q")
@@ -165,6 +167,16 @@ impl GdbParser {
             .stdin(process::Stdio::piped())
             .stderr(process::Stdio::piped())
             .creation_flags(0x08000000)
+            .spawn()?;
+
+        #[cfg(not(target_os = "windows"))]
+        let mut child = process::Command::new(name)
+            .args(&["--interpreter=mi"])
+            .arg("-q")
+            .arg(elffile)
+            .stdout(process::Stdio::piped())
+            .stdin(process::Stdio::piped())
+            .stderr(process::Stdio::piped())
             .spawn()?;
 
         let mut result = GdbParser {
