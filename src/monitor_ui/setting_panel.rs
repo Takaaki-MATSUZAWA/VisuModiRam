@@ -248,7 +248,7 @@ impl SettingTab {
 
                         let elf_path =
                             format!("{}", shellexpand::tilde(&self.symbol_search.input_elf_path));
-                        if let Ok(res) = Self::get_memory_usage(&PathBuf::from(&elf_path)) {
+                        if let Some(res) = Self::get_memory_usage(&PathBuf::from(&elf_path)) {
                             self.symbol_search.rom_size = res.0;
                             self.symbol_search.ram_size = res.1;
                         } else {
@@ -562,35 +562,29 @@ impl SettingTab {
         }
     }
 
-    fn get_memory_usage(elf_file_path: &PathBuf) -> Result<(f64, f64)> {
-        let name = ::std::env::var("SIZE_ARM_BINARY").unwrap_or("arm-none-eabi-size".to_string());
-        let output = std::process::Command::new(name)
-            .arg(elf_file_path)
-            .output()?;
-
-        if !output.status.success() {
-            //return Err(gdb_parser::Error::ParseError::new("arm-none-eabi-size コマンドの実行に失敗しました".to_string()));
-            return Err(Error::ParseError);
+    fn get_memory_usage(elf_file_path: &PathBuf) -> Option<(f64, f64)> {
+        if let Ok((text, data, bss)) =
+            ddbug_parser::File::parse(elf_file_path.to_str().unwrap().to_string()).and_then(|ctx| {
+                let mut text_size = 0.0;
+                let mut data_size = 0.0;
+                let mut bss_size = 0.0;
+                for sec in ctx.file().sections() {
+                    let cast_size = sec.size() as f64;
+                    match sec.name().unwrap() {
+                        ".isr_vector" | ".text" | ".rodata" | ".ARM" | ".init_array"
+                        | ".fini_array" => text_size += cast_size,
+                        ".data" => data_size += cast_size,
+                        ".bss" | "._user_heap_stack" => bss_size += cast_size,
+                        _ => {}
+                    }
+                }
+                Ok((text_size / 1024.0, data_size / 1024.0, bss_size / 1024.0))
+            })
+        {
+            // ROM size, RAM size
+            Some((text + data, data + bss))
+        } else {
+            None
         }
-
-        let output_str = String::from_utf8_lossy(&output.stdout);
-        let lines: Vec<&str> = output_str.trim().split('\n').collect();
-        if lines.len() < 2 {
-            //return Err("予期せぬ出力形式です".to_string());
-            return Err(Error::ParseError);
-        }
-
-        let values: Vec<&str> = lines[1].split_whitespace().collect();
-        if values.len() < 4 {
-            //return Err("予期せぬ出力形式です".to_string());
-            return Err(Error::ParseError);
-        }
-
-        let text = values[0].parse::<f64>().unwrap() / 1024.0;
-        let data = values[1].parse::<f64>().unwrap() / 1024.0;
-        let bss = values[2].parse::<f64>().unwrap() / 1024.0;
-
-        // ROM size, RAM size
-        Ok((text + data, data + bss))
     }
 }
