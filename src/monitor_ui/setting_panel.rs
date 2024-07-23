@@ -365,7 +365,7 @@ impl SettingTab {
                                     .on_hover_text("add watch list");
                             });
                             row.col(|ui| {
-                                ui.label(format!("0x{}", selected.address));
+                                ui.label(format!("0x{:x}", selected.address));
                             });
                             row.col(|ui| {
                                 ui.label(&selected.types);
@@ -525,7 +525,7 @@ impl SettingTab {
                                 for selected in watch_list {
                                     body.row(20.0, |mut row| {
                                         row.col(|ui| {
-                                            ui.label(format!("0x{}", selected.address));
+                                            ui.label(format!("0x{:x}", selected.address));
                                         });
                                         row.col(|ui| {
                                             ui.label(&selected.types);
