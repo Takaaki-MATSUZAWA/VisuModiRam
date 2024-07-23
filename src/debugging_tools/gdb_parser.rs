@@ -1,24 +1,16 @@
-//use std::env;
-
-//use std::intrinsics::size_of;
+use ddbug_parser::{File, FileHash, Member, TypeKind, TypeModifierKind, TypeOffset, Variable};
 use std::convert::From;
 use std::error;
 use std::fmt;
 use std::io;
-use std::io::{BufRead, BufReader, BufWriter, Write};
-#[cfg(target_os = "windows")]
-use std::os::windows::process::CommandExt;
 use std::path::PathBuf;
-use std::process;
 use std::result;
 use std::str;
-
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use regex::Regex;
-
 // ----------------------------------------------------------------------------
+
 #[derive(Default, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct SelectableVariableInfo {
@@ -62,6 +54,7 @@ impl Ord for VariableInfo {
     }
 }
 // ----------------------------------------------------------------------------
+
 impl SelectableVariableInfo {
     pub fn generate(list: &Vec<VariableInfo>) -> Vec<SelectableVariableInfo> {
         let mut new_list = Vec::new();
@@ -110,12 +103,12 @@ impl SelectableVariableInfo {
         new_list
     }
 }
+
 // ----------------------------------------------------------------------------
-// $env:GDB_BINARY = "C:\ProgramData\chocolatey\bin\arm-none-eabi-gdb.exe"
+
 #[derive(Clone)]
 pub struct GdbParser {
-    stdin: Arc<Mutex<BufWriter<process::ChildStdin>>>,
-    stdout: Arc<Mutex<BufReader<process::ChildStdout>>>,
+    elf_path: String,
     variable_list: Arc<Mutex<Vec<VariableInfo>>>,
     scan_prgress: Arc<Mutex<f64>>,
 }
@@ -155,120 +148,57 @@ impl From<io::Error> for Error {
     }
 }
 
+// ----------------------------------------------------------------------------
+
 impl GdbParser {
     pub fn launch(elffile: &PathBuf) -> Result<Self> {
-        let name = ::std::env::var("GDB_ARM_BINARY").unwrap_or("arm-none-eabi-gdb".to_string());
-        #[cfg(target_os = "windows")]
-        let mut child = process::Command::new(name)
-            .args(&["--interpreter=mi"])
-            .arg("-q")
-            .arg(elffile)
-            .stdout(process::Stdio::piped())
-            .stdin(process::Stdio::piped())
-            .stderr(process::Stdio::piped())
-            .creation_flags(0x08000000)
-            .spawn()?;
-
-        #[cfg(not(target_os = "windows"))]
-        let mut child = process::Command::new(name)
-            .args(&["--interpreter=mi"])
-            .arg("-q")
-            .arg(elffile)
-            .stdout(process::Stdio::piped())
-            .stdin(process::Stdio::piped())
-            .stderr(process::Stdio::piped())
-            .spawn()?;
-
-        let mut result = GdbParser {
-            stdin: Arc::new(Mutex::new(BufWriter::new(
-                child.stdin.take().expect("broken stdin"),
-            ))),
-            stdout: Arc::new(Mutex::new(BufReader::new(
-                child.stdout.take().expect("broken stdout"),
-            ))),
+        Ok(GdbParser {
+            elf_path: elffile.to_str().unwrap().to_string(),
             variable_list: Arc::new(Mutex::new(Vec::new())),
             scan_prgress: Arc::new(Mutex::new(0.0)),
-        };
-
-        result.read_sequence()?;
-        result.set_options()?;
-        Ok(result)
-    }
-
-    fn set_options(&mut self) -> Result<()> {
-        let opt1 = "set print type methods off";
-        let opt2 = "set print type typedefs off";
-
-        self.send_cmd_raw(opt1)?;
-        self.send_cmd_raw(opt2)?;
-        Ok(())
-    }
-
-    pub fn scan_variables_none_blocking_start(&mut self) -> std::thread::JoinHandle<Result<()>> {
-        let mut _variable_list = Vec::new();
-        let mut _vari_list = self.get_variable_list().unwrap();
-
-        let mut now_num_of_list = 0;
-
-        let progress_clone = Arc::clone(&self.scan_prgress);
-
-        let self_arc = Arc::new(Mutex::new(self.clone())); // ここを変更
-
-        thread::spawn(move || {
-            let mut self_lock = self_arc.lock().unwrap();
-
-            let expanded_list = self_lock.expand_symbol(_vari_list);
-            let expanded_list_len = expanded_list.len() as f64;
-
-            for var in expanded_list {
-                now_num_of_list += 1;
-
-                let mut progress = progress_clone.lock().unwrap();
-                *progress = now_num_of_list as f64 / expanded_list_len;
-                drop(progress);
-
-                let var_type = self_lock.get_variable_types(&var).unwrap();
-
-                if var_type.is_empty() {
-                    continue;
-                }
-
-                let var_size = self_lock.get_variable_size(&var).unwrap();
-
-                let var_address = self_lock.get_variable_address(&var).unwrap();
-                _variable_list.push(VariableInfo {
-                    name: var,
-                    types: var_type.get(0).cloned().unwrap_or_default(),
-                    address: var_address.unwrap_or_default(),
-                    size: var_size,
-                });
-            }
-
-            // self_lock.variable_list = Arc::new(Mutex::new(_variable_list.clone()));
-            let mut variable_list_guard = self_lock.variable_list.lock().unwrap();
-            *variable_list_guard = _variable_list.clone();
-
-            Ok(())
         })
     }
 
-    fn get_variable_size(&mut self, var: &String) -> Result<usize> {
-        let cmd = format!("p sizeof {}", var);
-        let output = self.send_cmd_raw(&cmd)?;
-        let size = self.extract_size(output);
-        Ok(size)
-    }
+    pub fn scan_variables_none_blocking_start(&mut self) -> std::thread::JoinHandle<Result<()>> {
+        let mut _variable_list = self.variable_list.clone();
+        let elf_path = self.elf_path.to_string().clone();
+        let progress_clone = Arc::clone(&self.scan_prgress);
 
-    fn extract_size(&mut self, input: Vec<String>) -> usize {
-        let size_str = input[1]
-            .split("= ")
-            .last()
-            .unwrap_or_default()
-            .split("\\n")
-            .next()
-            .unwrap_or_default();
-        //println!("{} --> {}", input[1], size_str);
-        size_str.trim().parse::<usize>().unwrap_or_default()
+        thread::spawn(move || {
+            let variable_vec = File::parse(elf_path).and_then(|ctx| {
+                let hash = FileHash::new(ctx.file()); // 検索用のハッシュを用意
+                let mut variable_info_vec = Vec::new(); // 保存用のVec
+
+                let prgress_step = 1.0 / ctx.file().units().len() as f64;
+
+                // ユニットを取り出す
+                for unit in ctx.file().units().iter() {
+                    // 変数を取り出す
+                    for var in unit.variables() {
+                        // Addressが存在するものだけに絞る
+                        if let Some(var_address) = var.address() {
+                            // アドレスが0でなければ継続
+                            if var_address != 0 {
+                                // 変数の中身を再帰的に調べる（メンバー変数などもリストアップ）
+                                variable_info_vec.extend(get_variable_info(var, &hash));
+                            }
+                        }
+                    }
+                    let mut progress = progress_clone.lock().unwrap();
+                    *progress += prgress_step;
+                    drop(progress);
+                }
+                Ok(variable_info_vec)
+            });
+
+            if let Ok(vars) = variable_vec {
+                *_variable_list.lock().unwrap() = vars.clone();
+                let mut progress = progress_clone.lock().unwrap();
+                *progress = 1.0;
+            }
+
+            Ok(())
+        })
     }
 
     pub fn load_variable_list(&mut self) -> Vec<VariableInfo> {
@@ -280,187 +210,166 @@ impl GdbParser {
         let progress = self.scan_prgress.lock().unwrap();
         *progress as f32
     }
+}
 
-    fn expand_symbol(&mut self, vari_list: Vec<String>) -> Vec<String> {
-        let mut _new_vari_list = Vec::new();
-        let mut false_cnt = 0;
+// ----------------------------------------------------------------------
 
-        for val in vari_list {
-            if self.check_expanded(val.as_str()) {
-                if let Ok(mut child_symbols) = self.get_variable_types(&val) {
-                    let val_parts: Vec<&str> = val.split('.').collect();
-                    child_symbols.retain(|child| !val_parts.contains(&child.as_str()));
+pub fn get_variable_info(var: &Variable, hash: &FileHash) -> Vec<VariableInfo> {
+    let mut vars_vec = Vec::new();
+    let typedata = var.ty(hash);
+    match typedata.clone().unwrap().kind() {
+        // ベース型の場合はそのままVecに追加
+        TypeKind::Base(typeinfo) => {
+            let info = VariableInfo {
+                name: var.name().unwrap().to_string(),
+                address: var.address().unwrap(),
+                types: typeinfo.name().unwrap().to_string(),
+                size: typeinfo.byte_size().unwrap() as usize,
+            };
+            vars_vec.push(info);
+        }
 
-                    let child_symbols = child_symbols
-                        .iter()
-                        .map(|chid| format!("{}.{}", val, chid))
-                        .collect::<Vec<String>>();
-                    _new_vari_list.append(&mut child_symbols.clone());
-                    //println!("ex {}", &val);
+        // メンバー変数を再帰的に探す
+        TypeKind::Def(typeinfo) => {
+            for member in typeinfo.ty(hash).clone().unwrap().members() {
+                vars_vec.extend(get_member(
+                    member,
+                    hash,
+                    var.name().unwrap().to_string(),
+                    var.address().unwrap(),
+                ));
+            }
+        }
 
-                    false_cnt += 1;
-                } else {
-                    continue;
+        // メンバー変数を再帰的に探す
+        TypeKind::Struct(typeinfo) => {
+            for member in typeinfo.members() {
+                vars_vec.extend(get_member(
+                    member,
+                    hash,
+                    var.name().unwrap().to_string(),
+                    var.address().unwrap(),
+                ));
+            }
+        }
+        _ => {} // 配列は後ほど実装を考える
+    }
+
+    vars_vec
+}
+
+pub fn get_member(
+    member: &Member,
+    hash: &FileHash,
+    parent_name: String,
+    parent_address: u64,
+) -> Vec<VariableInfo> {
+    let mut vars_vec = Vec::new();
+
+    match member.ty(hash).unwrap().kind() {
+        // ベース型の場合はそのままVecに追加
+        TypeKind::Base(typeinfo) => {
+            let member_name = format!("{}.{}", parent_name, member.name().unwrap());
+            let member_address = parent_address + (member.bit_offset() / 8);
+            let info = VariableInfo {
+                name: member_name,
+                address: member_address,
+                types: typeinfo.name().unwrap().to_string(),
+                size: typeinfo.byte_size().unwrap() as usize,
+            };
+            vars_vec.push(info);
+        }
+
+        TypeKind::Def(typeinfo) => {
+            // メンバー変数がこれ以上ない場合はベース型が存在するかチェックして、あればVecに追加
+            if typeinfo.ty(hash).unwrap().members().is_empty() {
+                match typeinfo.ty(hash).unwrap().kind() {
+                    TypeKind::Def(typeinfo) => {
+                        let member_name = format!("{}.{}", parent_name, member.name().unwrap());
+                        let member_address = parent_address + (member.bit_offset() / 8);
+                        let info = VariableInfo {
+                            name: member_name,
+                            address: member_address,
+                            types: get_base_type(typeinfo.ty(hash).unwrap().offset(), hash)
+                                .unwrap(),
+                            size: typeinfo.byte_size(hash).unwrap() as usize,
+                        };
+                        vars_vec.push(info);
+                    }
+                    _ => {}
                 }
             } else {
-                _new_vari_list.push(val);
-            }
-        }
-
-        if false_cnt != 0 {
-            _new_vari_list = self.expand_symbol(_new_vari_list);
-        }
-
-        _new_vari_list
-    }
-
-    fn get_variable_list(&mut self) -> Result<Vec<String>> {
-        let cmd = "info variables";
-
-        let output_vec_str = self.send_cmd_raw(&cmd)?;
-        let vari_list = self.extract_variable_names(output_vec_str);
-        Ok(vari_list)
-    }
-
-    fn extract_variable_names(&mut self, input: Vec<String>) -> Vec<String> {
-        //let mut results = HashSet::new();
-        let mut results = Vec::new();
-        let re = Regex::new(r"(\w+)\[?\d*\]?;").unwrap();
-
-        for line in input {
-            if let Some(caps) = re.captures(&line) {
-                if let Some(name) = caps.get(1) {
-                    //results.insert(name.as_str().to_string());
-                    results.push(name.as_str().to_string());
-                    //println!("{}", name.as_str().to_string());
+                // メンバー変数が存在する場合、再帰的に探す
+                let member_address = parent_address + (member.bit_offset() / 8);
+                for nest_member in typeinfo.ty(hash).unwrap().members() {
+                    vars_vec.extend(get_member(
+                        nest_member,
+                        &hash,
+                        format!("{}.{}", parent_name, member.name().unwrap().to_string()),
+                        member_address,
+                    ));
                 }
             }
         }
-
-        results.into_iter().collect()
-    }
-
-    fn check_expanded(&mut self, symbol_name: &str) -> bool {
-        let cmd = format!("ptype {}", symbol_name);
-
-        let output_vec_str = self.send_cmd_raw(&cmd);
-        match output_vec_str {
-            Ok(vec) => vec.len() != 3,
-            Err(_) => return true,
+        // 構造体なので、メンバー変数をさらに調べる
+        TypeKind::Struct(typeinfo) => {
+            let member_address = parent_address + (member.bit_offset() / 8);
+            for nest_member in typeinfo.members() {
+                vars_vec.extend(get_member(
+                    nest_member,
+                    &hash,
+                    format!("{}.{}", parent_name, member.name().unwrap().to_string()),
+                    member_address,
+                ));
+            }
         }
-    }
 
-    // 変数名からアドレスを取得する
-    fn get_variable_address(&mut self, symbol_name: &str) -> Result<Option<u64>> {
-        let cmd = format!("print /x &({})", symbol_name);
+        // 修飾子のある変数の場合は、型名に修飾子を付与する
+        TypeKind::Modifier(typeinfo) => {
+            let member_name = format!("{}.{}", parent_name, member.name().unwrap());
+            let member_address = parent_address + (member.bit_offset() / 8);
 
-        let output_vec_str = self.send_cmd_raw(&cmd)?;
-        let address = self.extract_variable_address(output_vec_str);
-        Ok(address)
-    }
+            // ベース型がある場合
+            if let Some(typename) = get_base_type(typeinfo.ty(hash).unwrap().offset(), hash) {
+                // 修飾子の種類と表示名をマッピング
+                let modifier = match typeinfo.kind() {
+                    TypeModifierKind::Const => Some("const "),
+                    TypeModifierKind::Volatile => Some("volatile "),
+                    _ => None,
+                };
 
-    fn extract_variable_address(&mut self, input: Vec<String>) -> Option<u64> {
-        let re = Regex::new(r#"~"\$[0-9]+ = (0x[0-9a-fA-F]+)\\n"#).unwrap();
+                if let Some(modif) = modifier {
+                    let info = VariableInfo {
+                        name: member_name.clone(),
+                        address: member_address,
+                        types: format!("{}{}", modif, typename.clone()),
+                        size: typeinfo.byte_size(hash).unwrap() as usize,
+                    };
 
-        for line in input {
-            if let Some(caps) = re.captures(&line) {
-                match caps.get(1) {
-                    Some(res) => {
-                        let address_str = res.as_str().to_string();
-                        let address = if address_str.starts_with("0x") {
-                            u64::from_str_radix(&address_str[2..], 16)
-                        } else {
-                            address_str.parse::<u64>()
-                        }
-                        .expect("failed to parse watchlist variable address");
-                        return Some(address);
-                    }
-                    None => continue,
+                    vars_vec.push(info);
                 }
             }
         }
+        _ => {}
+    }
+
+    vars_vec
+}
+
+// ベース型を調べる関数
+pub fn get_base_type(type_offset: TypeOffset, hash: &FileHash) -> Option<String> {
+    if let Some(typedata) = hash.types.get(&type_offset) {
+        match typedata.kind().clone() {
+            TypeKind::Base(typeinfo) => Some(typeinfo.name().unwrap().to_string()),
+            TypeKind::Def(typeinfo) => get_base_type(typeinfo.ty(hash).unwrap().offset(), hash),
+            _ => None, // その他の形式は必要に応じて実装していく予定
+        }
+    } else {
         None
-    }
-
-    fn get_variable_types(&mut self, symbol_name: &str) -> Result<Vec<String>> {
-        let cmd = format!("ptype {}", symbol_name);
-
-        let output_vec_str = self.send_cmd_raw(&cmd)?;
-        if output_vec_str.is_empty() {
-            return Ok(Vec::new());
-        }
-
-        // skip pointor
-        if output_vec_str[output_vec_str.len() - 2].contains("*") {
-            return Ok(Vec::new());
-        }
-
-        // skip enum
-        if output_vec_str[1].contains(" enum ") {
-            return Ok(Vec::new());
-        }
-
-        // skip const
-        if output_vec_str[1].contains("const") {
-            return Ok(Vec::new());
-        }
-
-        let mut vari_list = self.extract_variable_names(output_vec_str.clone());
-        if vari_list.len() == 0 {
-            if let Some(valtype) = self.extract_variable_type(output_vec_str.clone()) {
-                vari_list.push(valtype);
-            }
-        }
-        Ok(vari_list)
-    }
-
-    fn extract_variable_type(&mut self, input: Vec<String>) -> Option<String> {
-        let re = Regex::new(r#"~"type = ([^"]+)\\n"#).unwrap();
-
-        for line in input {
-            if let Some(caps) = re.captures(&line) {
-                match caps.get(1) {
-                    Some(res) => return Some(res.as_str().to_string()),
-                    None => continue,
-                }
-            }
-        }
-        None
-    }
-
-    fn send_cmd_raw(&mut self, cmd: &str) -> Result<Vec<String>> {
-        if cmd.ends_with("\n") {
-            write!(self.stdin.lock().unwrap(), "{}", cmd)?;
-        } else {
-            writeln!(self.stdin.lock().unwrap(), "{}", cmd)?;
-        }
-        self.stdin.lock().unwrap().flush()?;
-        self.read_sequence()
-    }
-
-    fn read_sequence(&mut self) -> Result<Vec<String>> {
-        let mut result = Vec::new();
-        let mut line = String::new();
-        self.stdout.lock().unwrap().read_line(&mut line)?;
-        while line != "(gdb) \n" && line != "(gdb) \r\n" {
-            result.push(line.clone());
-            //print!("--read_sequence--  {}", line);
-            if line == "" {
-                break;
-            }
-
-            line.clear();
-            self.stdout.lock().unwrap().read_line(&mut line)?;
-        }
-        Ok(result)
     }
 }
 
-impl Drop for GdbParser {
-    fn drop(&mut self) {
-        let _ = self.stdin.lock().unwrap().write_all(b"-gdb-exit\n");
-    }
-}
+// ----------------------------------------------------------------------
 
 pub fn search_target_mcu_name(elf_file_path: &PathBuf) -> Option<String> {
     let project_name = elf_file_path.file_stem()?.to_str()?.to_string();
