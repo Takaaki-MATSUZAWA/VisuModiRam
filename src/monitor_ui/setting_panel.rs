@@ -139,7 +139,7 @@ impl eframe::App for SettingTab {
 
 // ----------------------------------------------------------------------------
 impl SettingTab {
-    fn symbol_search_ui(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
+    fn symbol_search_ui(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui) {
         let mut download_enable = false;
         ui.heading("ELF file loader");
         ui.horizontal(|ui| {
@@ -315,8 +315,6 @@ impl SettingTab {
             ui.text_edit_singleline(&mut self.symbol_search.search_name);
         });
 
-        let window_width = ctx.available_rect().width() / 2.0;
-
         const CHECK_CLM: f32 = 15.;
         const ADDR_CLM: f32 = 85.;
         const TYPE_CLM: f32 = 120.;
@@ -324,6 +322,7 @@ impl SettingTab {
 
         TableBuilder::new(ui)
             .striped(true)
+            .auto_shrink([false; 2])
             .resizable(true)
             .vscroll(true)
             .drag_to_scroll(true)
@@ -332,11 +331,7 @@ impl SettingTab {
             .column(Column::initial(ADDR_CLM).resizable(true))
             .column(Column::initial(TYPE_CLM).resizable(true))
             .column(Column::initial(SIZE_CLM).resizable(true))
-            .column(
-                Column::initial(window_width - (CHECK_CLM + ADDR_CLM + TYPE_CLM + SIZE_CLM + 50.0))
-                    .at_least(50.0)
-                    .resizable(true),
-            )
+            .column(Column::remainder().resizable(true))
             .header(9.0, |mut header| {
                 header.col(|_| {});
                 header.col(|ui| {
@@ -496,6 +491,8 @@ impl SettingTab {
                         self.symbol_search.target_mcu_id
                     ));
 
+                    ui.separator();
+
                     ui.push_id(2, |ui| {
                         let watch_list = self.get_watch_list();
                         let mut to_remove = None;
@@ -505,11 +502,12 @@ impl SettingTab {
                             .resizable(true)
                             .vscroll(true)
                             .drag_to_scroll(true)
+                            .column(Column::exact(20.0))
                             .column(Column::initial(120.).resizable(true))
                             .column(Column::initial(160.).resizable(true))
-                            .column(Column::initial(290.).at_least(50.0).resizable(true))
-                            .column(Column::auto().at_least(30.0).resizable(true))
+                            .column(Column::remainder().resizable(true))
                             .header(9.0, |mut header| {
+                                header.col(|_ui| {});
                                 header.col(|ui| {
                                     ui.heading("Address");
                                 });
@@ -519,11 +517,15 @@ impl SettingTab {
                                 header.col(|ui| {
                                     ui.heading("Symbol Name");
                                 });
-                                header.col(|_ui| {});
                             })
                             .body(|mut body| {
                                 for selected in watch_list {
                                     body.row(20.0, |mut row| {
+                                        row.col(|ui| {
+                                            if ui.button("x").clicked() {
+                                                to_remove = Some(selected.name.clone());
+                                            }
+                                        });
                                         row.col(|ui| {
                                             ui.label(format!("0x{:x}", selected.address));
                                         });
@@ -532,11 +534,6 @@ impl SettingTab {
                                         });
                                         row.col(|ui| {
                                             ui.label(&selected.name).on_hover_text(&selected.name);
-                                        });
-                                        row.col(|ui| {
-                                            if ui.button("x").clicked() {
-                                                to_remove = Some(selected.name.clone());
-                                            }
                                         });
                                     });
                                 }
