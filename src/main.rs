@@ -1,4 +1,5 @@
 // hide console window on Windows in release
+#![allow(non_snake_case)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod debugging_tools;
