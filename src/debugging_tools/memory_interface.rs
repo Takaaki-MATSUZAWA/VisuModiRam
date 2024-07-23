@@ -1,4 +1,4 @@
-use super::gdb_parser::VariableInfo;
+use super::elf_parser::VariableInfo;
 use probe_rs::{Core, MemoryInterface};
 
 pub struct MCUMemory {}

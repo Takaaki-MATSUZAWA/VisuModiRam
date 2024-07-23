@@ -107,7 +107,7 @@ impl SelectableVariableInfo {
 // ----------------------------------------------------------------------------
 
 #[derive(Clone)]
-pub struct GdbParser {
+pub struct ELFParser {
     elf_path: String,
     variable_list: Arc<Mutex<Vec<VariableInfo>>>,
     scan_prgress: Arc<Mutex<f64>>,
@@ -125,7 +125,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Error::IOError(ref err) => write!(f, "{}", err),
-            Error::ParseError => write!(f, "cannot parse response from gdb"),
+            Error::ParseError => write!(f, "cannot parse response from ELF"),
             Error::IgnoredOutput => write!(f, "ignored output"),
         }
     }
@@ -150,9 +150,9 @@ impl From<io::Error> for Error {
 
 // ----------------------------------------------------------------------------
 
-impl GdbParser {
+impl ELFParser {
     pub fn launch(elffile: &PathBuf) -> Result<Self> {
-        Ok(GdbParser {
+        Ok(ELFParser {
             elf_path: elffile.to_str().unwrap().to_string(),
             variable_list: Arc::new(Mutex::new(Vec::new())),
             scan_prgress: Arc::new(Mutex::new(0.0)),

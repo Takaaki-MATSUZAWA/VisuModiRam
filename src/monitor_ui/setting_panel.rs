@@ -18,7 +18,7 @@ struct SymbolSearch {
     variable_list: Vec<VariableInfo>,
     selected_list: Vec<SelectableVariableInfo>,
     #[cfg_attr(feature = "serde", serde(skip))]
-    gdb_parser: Option<GdbParser>,
+    elf_parser: Option<ELFParser>,
     project_name: String,
     target_mcu_id: String,
 
@@ -175,12 +175,12 @@ impl SettingTab {
                         self.symbol_search.target_mcu_id = "".to_string();
                     }
 
-                    if let Ok(gdb_parser) = GdbParser::launch(&PathBuf::from(&elf_path)) {
+                    if let Ok(elf_parser) = ELFParser::launch(&PathBuf::from(&elf_path)) {
                         self.symbol_search.variable_list = Vec::new();
 
-                        self.symbol_search.gdb_parser = Some(gdb_parser);
-                        if let Some(gdb_parser) = &mut self.symbol_search.gdb_parser {
-                            gdb_parser.scan_variables_none_blocking_start();
+                        self.symbol_search.elf_parser = Some(elf_parser);
+                        if let Some(elf_parser) = &mut self.symbol_search.elf_parser {
+                            elf_parser.scan_variables_none_blocking_start();
                             #[cfg(debug_assertions)]
                             println!("scan start");
                         }
@@ -229,15 +229,15 @@ impl SettingTab {
             }
         }
 
-        if let Some(gdb_parser) = &mut self.symbol_search.gdb_parser {
-            let now_progress = gdb_parser.get_scan_progress();
+        if let Some(elf_parser) = &mut self.symbol_search.elf_parser {
+            let now_progress = elf_parser.get_scan_progress();
 
             if now_progress < 1.0 {
                 self.progress_bar
                     .set_progress(ProgresState::SymbolSearching, now_progress);
             } else {
                 if self.symbol_search.variable_list.is_empty() {
-                    self.symbol_search.variable_list = gdb_parser.load_variable_list();
+                    self.symbol_search.variable_list = elf_parser.load_variable_list();
                     if !self.symbol_search.variable_list.is_empty() {
                         SelectableVariableInfo::fetch(
                             &self.symbol_search.variable_list,
