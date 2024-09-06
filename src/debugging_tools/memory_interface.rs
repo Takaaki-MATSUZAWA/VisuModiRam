@@ -1,4 +1,4 @@
-use super::gdb_parser::VariableInfo;
+use super::elf_parser::VariableInfo;
 use probe_rs::{Core, MemoryInterface};
 
 pub struct MCUMemory {}
@@ -25,7 +25,7 @@ impl MCUMemory {
                     "Parse error for unsigned char"
                 ))),
             },
-            "short" => match value_str.parse::<i16>() {
+            "short int" => match value_str.parse::<i16>() {
                 Ok(val) => {
                     let block = val.to_le_bytes();
                     core.write_8(symbol.address, &block).map_err(|e| e.into())
@@ -34,7 +34,7 @@ impl MCUMemory {
                     "Parse error for short"
                 ))),
             },
-            "unsigned short" => match value_str.parse::<u16>() {
+            "short unsigned int" => match value_str.parse::<u16>() {
                 Ok(val) => {
                     let block = val.to_le_bytes();
                     core.write_8(symbol.address, &block).map_err(|e| e.into())
@@ -43,19 +43,19 @@ impl MCUMemory {
                     "Parse error for unsigned short"
                 ))),
             },
-            "int" | "long" => match value_str.parse::<i32>() {
+            "int" | "long int" => match value_str.parse::<i32>() {
                 Ok(val) => core.write_word_32(symbol.address, val as u32),
                 Err(_) => Err(probe_rs::Error::Other(anyhow::anyhow!(
                     "Parse error for int/long"
                 ))),
             },
-            "unsigned int" | "unsigned long" => match value_str.parse::<u32>() {
+            "unsigned int" | "long unsigned int" => match value_str.parse::<u32>() {
                 Ok(val) => core.write_word_32(symbol.address, val),
                 Err(_) => Err(probe_rs::Error::Other(anyhow::anyhow!(
                     "Parse error for unsigned int/long"
                 ))),
             },
-            "long long" => match value_str.parse::<i64>() {
+            "long long int" => match value_str.parse::<i64>() {
                 Ok(val) => {
                     let block = val.to_le_bytes();
                     let block_u32 = [
@@ -69,7 +69,7 @@ impl MCUMemory {
                     "Parse error for long long"
                 ))),
             },
-            "unsigned long long" => match value_str.parse::<u64>() {
+            "long long unsigned int" => match value_str.parse::<u64>() {
                 Ok(val) => {
                     let block = val.to_le_bytes();
                     let block_u32 = [
@@ -112,14 +112,14 @@ impl MCUMemory {
                         .unwrap();
                     format!("{}", val_bits as i8)
                 }
-                "unsigned char" | "bool"  => {
+                "unsigned char" | "bool" => {
                     let val_bits = core
                         .read_word_8(symbol.address)
                         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
                         .unwrap();
                     format!("{}", val_bits)
                 }
-                "short" => {
+                "short int" => {
                     let mut buff = [0u8; 2];
                     core.read_8(symbol.address, &mut buff)
                         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
@@ -127,7 +127,7 @@ impl MCUMemory {
                     let val_bits = u16::from_le_bytes(buff);
                     format!("{}", val_bits as i16)
                 }
-                "unsigned short" => {
+                "short unsigned int" => {
                     let mut buff = [0u8; 2];
                     core.read_8(symbol.address, &mut buff)
                         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
@@ -135,28 +135,28 @@ impl MCUMemory {
                     let val_bits = u16::from_le_bytes(buff);
                     format!("{}", val_bits)
                 }
-                "int" | "long" => {
+                "int" | "long int" => {
                     let val_bits = core
                         .read_word_32(symbol.address)
                         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
                         .unwrap();
                     format!("{}", val_bits as i32)
                 }
-                "unsigned int" | "unsigned long" => {
+                "unsigned int" | "long unsigned int" => {
                     let val_bits = core
                         .read_word_32(symbol.address)
                         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
                         .unwrap();
                     format!("{}", val_bits)
                 }
-                "long long" => {
+                "long long int" => {
                     let val_bits = core
                         .read_word_64(symbol.address)
                         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
                         .unwrap();
                     format!("{}", val_bits as i64)
                 }
-                "unsigned long long" => {
+                "long long unsigned int" => {
                     let val_bits = core
                         .read_word_64(symbol.address)
                         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))

@@ -18,7 +18,7 @@ struct SymbolSearch {
     variable_list: Vec<VariableInfo>,
     selected_list: Vec<SelectableVariableInfo>,
     #[cfg_attr(feature = "serde", serde(skip))]
-    gdb_parser: Option<GdbParser>,
+    elf_parser: Option<ELFParser>,
     project_name: String,
     target_mcu_id: String,
 
@@ -139,7 +139,7 @@ impl eframe::App for SettingTab {
 
 // ----------------------------------------------------------------------------
 impl SettingTab {
-    fn symbol_search_ui(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
+    fn symbol_search_ui(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui) {
         let mut download_enable = false;
         ui.heading("ELF file loader");
         ui.horizontal(|ui| {
@@ -175,14 +175,14 @@ impl SettingTab {
                         self.symbol_search.target_mcu_id = "".to_string();
                     }
 
-                    if let Ok(gdb_parser) = GdbParser::launch(&PathBuf::from(&elf_path)) {
+                    if let Ok(elf_parser) = ELFParser::launch(&PathBuf::from(&elf_path)) {
                         self.symbol_search.variable_list = Vec::new();
                         #[cfg(debug_assertions)]
                         println!("scaner launched");
 
-                        self.symbol_search.gdb_parser = Some(gdb_parser);
-                        if let Some(gdb_parser) = &mut self.symbol_search.gdb_parser {
-                            gdb_parser.scan_variables_none_blocking_start();
+                        self.symbol_search.elf_parser = Some(elf_parser);
+                        if let Some(elf_parser) = &mut self.symbol_search.elf_parser {
+                            elf_parser.scan_variables_none_blocking_start();
                             #[cfg(debug_assertions)]
                             println!("scan start");
                         }
@@ -231,8 +231,8 @@ impl SettingTab {
             }
         }
 
-        if let Some(gdb_parser) = &mut self.symbol_search.gdb_parser {
-            let now_progress = gdb_parser.get_scan_progress();
+        if let Some(elf_parser) = &mut self.symbol_search.elf_parser {
+            let now_progress = elf_parser.get_scan_progress();
 
             if now_progress < 1.0 {
                 ctx.request_repaint();
@@ -240,7 +240,7 @@ impl SettingTab {
                     .set_progress(ProgresState::SymbolSearching, now_progress);
             } else {
                 if self.symbol_search.variable_list.is_empty() {
-                    self.symbol_search.variable_list = gdb_parser.load_variable_list();
+                    self.symbol_search.variable_list = elf_parser.load_variable_list();
                     if !self.symbol_search.variable_list.is_empty() {
                         ctx.request_repaint();
                         SelectableVariableInfo::fetch(
@@ -253,7 +253,7 @@ impl SettingTab {
 
                         let elf_path =
                             format!("{}", shellexpand::tilde(&self.symbol_search.input_elf_path));
-                        if let Ok(res) = Self::get_memory_usage(&PathBuf::from(&elf_path)) {
+                        if let Some(res) = Self::get_memory_usage(&PathBuf::from(&elf_path)) {
                             self.symbol_search.rom_size = res.0;
                             self.symbol_search.ram_size = res.1;
                         } else {
@@ -322,8 +322,6 @@ impl SettingTab {
             ui.text_edit_singleline(&mut self.symbol_search.search_name);
         });
 
-        let window_width = ctx.available_rect().width() / 2.0;
-
         const CHECK_CLM: f32 = 15.;
         const ADDR_CLM: f32 = 85.;
         const TYPE_CLM: f32 = 120.;
@@ -331,6 +329,7 @@ impl SettingTab {
 
         TableBuilder::new(ui)
             .striped(true)
+            .auto_shrink([false; 2])
             .resizable(true)
             .vscroll(true)
             .drag_to_scroll(true)
@@ -339,11 +338,7 @@ impl SettingTab {
             .column(Column::initial(ADDR_CLM).resizable(true))
             .column(Column::initial(TYPE_CLM).resizable(true))
             .column(Column::initial(SIZE_CLM).resizable(true))
-            .column(
-                Column::initial(window_width - (CHECK_CLM + ADDR_CLM + TYPE_CLM + SIZE_CLM + 50.0))
-                    .at_least(50.0)
-                    .resizable(true),
-            )
+            .column(Column::remainder().resizable(true))
             .header(9.0, |mut header| {
                 header.col(|_| {});
                 header.col(|ui| {
@@ -372,7 +367,7 @@ impl SettingTab {
                                     .on_hover_text("add watch list");
                             });
                             row.col(|ui| {
-                                ui.label(format!("0x{}", selected.address));
+                                ui.label(format!("0x{:x}", selected.address));
                             });
                             row.col(|ui| {
                                 ui.label(&selected.types);
@@ -503,6 +498,8 @@ impl SettingTab {
                         self.symbol_search.target_mcu_id
                     ));
 
+                    ui.separator();
+
                     ui.push_id(2, |ui| {
                         let watch_list = self.get_watch_list();
                         let mut to_remove = None;
@@ -512,11 +509,12 @@ impl SettingTab {
                             .resizable(true)
                             .vscroll(true)
                             .drag_to_scroll(true)
+                            .column(Column::exact(20.0))
                             .column(Column::initial(120.).resizable(true))
                             .column(Column::initial(160.).resizable(true))
-                            .column(Column::initial(290.).at_least(50.0).resizable(true))
-                            .column(Column::auto().at_least(30.0).resizable(true))
+                            .column(Column::remainder().resizable(true))
                             .header(9.0, |mut header| {
+                                header.col(|_ui| {});
                                 header.col(|ui| {
                                     ui.heading("Address");
                                 });
@@ -526,24 +524,23 @@ impl SettingTab {
                                 header.col(|ui| {
                                     ui.heading("Symbol Name");
                                 });
-                                header.col(|_ui| {});
                             })
                             .body(|mut body| {
                                 for selected in watch_list {
                                     body.row(20.0, |mut row| {
                                         row.col(|ui| {
-                                            ui.label(format!("0x{}", selected.address));
+                                            if ui.button("x").clicked() {
+                                                to_remove = Some(selected.name.clone());
+                                            }
+                                        });
+                                        row.col(|ui| {
+                                            ui.label(format!("0x{:x}", selected.address));
                                         });
                                         row.col(|ui| {
                                             ui.label(&selected.types);
                                         });
                                         row.col(|ui| {
                                             ui.label(&selected.name).on_hover_text(&selected.name);
-                                        });
-                                        row.col(|ui| {
-                                            if ui.button("x").clicked() {
-                                                to_remove = Some(selected.name.clone());
-                                            }
                                         });
                                     });
                                 }
@@ -572,35 +569,29 @@ impl SettingTab {
         }
     }
 
-    fn get_memory_usage(elf_file_path: &PathBuf) -> Result<(f64, f64)> {
-        let name = ::std::env::var("SIZE_ARM_BINARY").unwrap_or("arm-none-eabi-size".to_string());
-        let output = std::process::Command::new(name)
-            .arg(elf_file_path)
-            .output()?;
-
-        if !output.status.success() {
-            //return Err(gdb_parser::Error::ParseError::new("arm-none-eabi-size コマンドの実行に失敗しました".to_string()));
-            return Err(Error::ParseError);
+    fn get_memory_usage(elf_file_path: &PathBuf) -> Option<(f64, f64)> {
+        if let Ok((text, data, bss)) =
+            ddbug_parser::File::parse(elf_file_path.to_str().unwrap().to_string()).and_then(|ctx| {
+                let mut text_size = 0.0;
+                let mut data_size = 0.0;
+                let mut bss_size = 0.0;
+                for sec in ctx.file().sections() {
+                    let cast_size = sec.size() as f64;
+                    match sec.name().unwrap() {
+                        ".isr_vector" | ".text" | ".rodata" | ".ARM" | ".init_array"
+                        | ".fini_array" => text_size += cast_size,
+                        ".data" => data_size += cast_size,
+                        ".bss" | "._user_heap_stack" => bss_size += cast_size,
+                        _ => {}
+                    }
+                }
+                Ok((text_size / 1024.0, data_size / 1024.0, bss_size / 1024.0))
+            })
+        {
+            // ROM size, RAM size
+            Some((text + data, data + bss))
+        } else {
+            None
         }
-
-        let output_str = String::from_utf8_lossy(&output.stdout);
-        let lines: Vec<&str> = output_str.trim().split('\n').collect();
-        if lines.len() < 2 {
-            //return Err("予期せぬ出力形式です".to_string());
-            return Err(Error::ParseError);
-        }
-
-        let values: Vec<&str> = lines[1].split_whitespace().collect();
-        if values.len() < 4 {
-            //return Err("予期せぬ出力形式です".to_string());
-            return Err(Error::ParseError);
-        }
-
-        let text = values[0].parse::<f64>().unwrap() / 1024.0;
-        let data = values[1].parse::<f64>().unwrap() / 1024.0;
-        let bss = values[2].parse::<f64>().unwrap() / 1024.0;
-
-        // ROM size, RAM size
-        Ok((text + data, data + bss))
     }
 }

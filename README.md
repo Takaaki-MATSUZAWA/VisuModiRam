@@ -34,9 +34,9 @@ git clone https://github.com/Takaaki-MATSUZAWA/STM32EguiMonitor.git
 cd STM32EguiMonitor
 
 # nightylyチャネルへ切り替え
-rustup override set nightly
+rustup override set nightly-2024-01-01
 # ビルド
-cargo buid --release
+cargo build --release
 # target/release/のどっかにSTM32EguiMonitor.exeが出来上がる
 ```
 
