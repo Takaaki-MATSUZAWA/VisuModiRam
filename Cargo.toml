@@ -1,6 +1,11 @@
 [package]
 name = "VisuModiRam"
+description = "Debugging tools for STM32 to visualize or modify variables on RAM"
+authors = ["Takaaki-MATSUZAWA"]
 version = "0.2.0"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/Takaaki-MATSUZAWA/VisuModiRam"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
