@@ -2,6 +2,8 @@
 
 Debugging tools for STM32 to visualize or modify variables on RAM
 
+![monitor_capture](https://github.com/user-attachments/assets/81b2db67-42f3-442e-9ec4-2ec249023daa)
+
 ## 概要
 - [STM32CubeMonitor](https://www.st.com/ja/development-tools/stm32cubemonitor.html)を真似て作ったソフト
 - Rust + Eguiで実装されている
@@ -34,4 +36,5 @@ cargo build --release
 ```
 
 ## 操作方法
-あとで書く
+
+https://github.com/user-attachments/assets/d9b431ca-3f7e-4cb2-b0ac-9d9201009f6b
