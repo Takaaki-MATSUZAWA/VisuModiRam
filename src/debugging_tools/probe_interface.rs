@@ -264,6 +264,8 @@ impl ProbeInterface {
         &mut self,
         elf_path: PathBuf,
     ) -> std::thread::JoinHandle<Result<(), probe_rs::Error>> {
+        use flashing::ProgressEvent::*;
+
         let probes = Probe::list_all();
         let setting = self.setting.clone();
 
@@ -272,6 +274,7 @@ impl ProbeInterface {
             return std::thread::spawn(move || err);
         }
 
+        self.flash_progress.lock().unwrap().state = FlashProgressState::Erasing;
         let progress_clone = Arc::clone(&self.flash_progress);
 
         std::thread::spawn(move || {
@@ -297,7 +300,6 @@ impl ProbeInterface {
                 let mut total_page_size = total_page_size.lock().unwrap();
                 let mut total_sector_size = total_sector_size.lock().unwrap();
 
-                use flashing::ProgressEvent::*;
                 match event {
                     Initialized { flash_layout } => {
                         *total_page_size = flash_layout.pages().iter().map(|s| s.size()).sum();

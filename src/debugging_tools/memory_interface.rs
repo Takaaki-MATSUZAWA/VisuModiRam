@@ -112,7 +112,7 @@ impl MCUMemory {
                         .unwrap();
                     format!("{}", val_bits as i8)
                 }
-                "unsigned char" | "bool" | "_Bool"=> {
+                "unsigned char" | "bool" | "_Bool" => {
                     let val_bits = core
                         .read_word_8(symbol.address)
                         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))

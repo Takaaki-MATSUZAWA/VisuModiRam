@@ -75,19 +75,17 @@ impl LedMonitor {
             open_dialog: Dialog::None,
         };
 
-        
         #[cfg(feature = "persistence")]
         if let Some(storage) = cc.storage {
             if let Some(state) = eframe::get_value(storage, eframe::APP_KEY) {
                 slf.state = state;
             }
         }
-        
 
         slf
     }
 
-    pub fn new_with_ronfile(cc: &eframe::CreationContext<'_>, ron_file: PathBuf) -> Self{
+    pub fn new_with_ronfile(cc: &eframe::CreationContext<'_>, ron_file: PathBuf) -> Self {
         let mut self_ctx = Self::new(cc);
 
         println!("new_with_ronfile -- {:?}", ron_file);
@@ -96,7 +94,7 @@ impl LedMonitor {
         if let Ok(load_data) = res {
             println!("desirialize succsess");
             self_ctx.state = load_data;
-        }else{
+        } else {
             println!("desirialize faild {:?}", res.err());
         }
         self_ctx
@@ -263,12 +261,10 @@ impl LedMonitor {
 }
 
 impl eframe::App for LedMonitor {
-    
     #[cfg(feature = "persistence")]
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, &self.state);
     }
-     
 
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         ctx.request_repaint();

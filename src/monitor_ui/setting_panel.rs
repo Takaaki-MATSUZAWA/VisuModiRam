@@ -269,6 +269,13 @@ impl SettingTab {
         {
             let flash_progress = self.probe_setting.flash_probe_if.get_flash_progress();
 
+            let mut repaint_flag = flash_progress.progress < 1.0;
+            if (flash_progress.progress == 1.0)
+                && (self.progress_bar.state != ProgresState::ElfFlashComplite)
+            {
+                repaint_flag = true;
+            }
+
             use FlashProgressState::*;
             match flash_progress.state {
                 None => {}
@@ -277,14 +284,12 @@ impl SettingTab {
                         ProgresState::ElfFlashErasing,
                         flash_progress.progress as f32,
                     );
-                    ctx.request_repaint();
                 }
                 Programing => {
                     self.progress_bar.set_progress(
                         ProgresState::ElfFlashWriteing,
                         flash_progress.progress as f32,
                     );
-                    ctx.request_repaint();
                 }
                 Finished => {
                     self.progress_bar.complete(ProgresState::ElfFlashComplite);
@@ -293,6 +298,10 @@ impl SettingTab {
                     self.progress_bar.faild();
                 }
             };
+
+            if repaint_flag {
+                ctx.request_repaint();
+            }
         }
 
         self.progress_bar.show(ui);

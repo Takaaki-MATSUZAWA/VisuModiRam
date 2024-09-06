@@ -10,10 +10,9 @@ use led_monitor::LedMonitor;
 
 use std::{env, path::PathBuf};
 
-
 fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
-    
+
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size([1280.0, 720.0]),
         ..Default::default()
@@ -27,10 +26,10 @@ fn main() -> Result<(), eframe::Error> {
             options,
             Box::new(|cc| Box::new(LedMonitor::new(cc))),
         )
-    }else{
+    } else {
         let ron_file_path = &args[1];
         let ron_file_path = PathBuf::from(ron_file_path);
-    
+
         eframe::run_native(
             "LED Controller",
             options,
