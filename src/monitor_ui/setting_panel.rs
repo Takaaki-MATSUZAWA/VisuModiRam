@@ -177,6 +177,8 @@ impl SettingTab {
 
                     if let Ok(gdb_parser) = GdbParser::launch(&PathBuf::from(&elf_path)) {
                         self.symbol_search.variable_list = Vec::new();
+                        #[cfg(debug_assertions)]
+                        println!("scaner launched");
 
                         self.symbol_search.gdb_parser = Some(gdb_parser);
                         if let Some(gdb_parser) = &mut self.symbol_search.gdb_parser {
@@ -233,16 +235,19 @@ impl SettingTab {
             let now_progress = gdb_parser.get_scan_progress();
 
             if now_progress < 1.0 {
+                ctx.request_repaint();
                 self.progress_bar
                     .set_progress(ProgresState::SymbolSearching, now_progress);
             } else {
                 if self.symbol_search.variable_list.is_empty() {
                     self.symbol_search.variable_list = gdb_parser.load_variable_list();
                     if !self.symbol_search.variable_list.is_empty() {
+                        ctx.request_repaint();
                         SelectableVariableInfo::fetch(
                             &self.symbol_search.variable_list,
                             &mut self.symbol_search.selected_list,
                         );
+
                         self.progress_bar
                             .complete(ProgresState::SymbolSearchComplite);
 
@@ -272,12 +277,14 @@ impl SettingTab {
                         ProgresState::ElfFlashErasing,
                         flash_progress.progress as f32,
                     );
+                    ctx.request_repaint();
                 }
                 Programing => {
                     self.progress_bar.set_progress(
                         ProgresState::ElfFlashWriteing,
                         flash_progress.progress as f32,
                     );
+                    ctx.request_repaint();
                 }
                 Finished => {
                     self.progress_bar.complete(ProgresState::ElfFlashComplite);
