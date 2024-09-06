@@ -139,7 +139,7 @@ impl eframe::App for SettingTab {
 
 // ----------------------------------------------------------------------------
 impl SettingTab {
-    fn symbol_search_ui(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui) {
+    fn symbol_search_ui(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
         let mut download_enable = false;
         ui.heading("ELF file loader");
         ui.horizontal(|ui| {
