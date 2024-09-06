@@ -24,8 +24,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "STM32EguiMonitor"
-version = "0.1.0"
+name = "VisuModiRam"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "ddbug_parser",

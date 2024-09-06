@@ -6,7 +6,7 @@ mod debugging_tools;
 mod egui_monitor;
 mod monitor_ui;
 
-use egui_monitor::STM32EguiMonitor;
+use egui_monitor::VisuModiRam;
 
 fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
@@ -15,8 +15,8 @@ fn main() -> Result<(), eframe::Error> {
         ..Default::default()
     };
     eframe::run_native(
-        "STM32EguiMonitor",
+        "VisuModiRam",
         options,
-        Box::new(|cc| Box::new(STM32EguiMonitor::new(cc))),
+        Box::new(|cc| Box::new(VisuModiRam::new(cc))),
     )
 }

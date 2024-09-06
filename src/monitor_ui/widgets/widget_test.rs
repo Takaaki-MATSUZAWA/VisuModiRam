@@ -18,7 +18,7 @@ pub struct WidgetTest {
 impl super::WidgetApp for WidgetTest {
     fn update(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show_inside(ui, |ui| {
-            ui.heading("STM32EguiMonitor");
+            ui.heading("VisuModiRam");
 
             ui.horizontal(|ui| {
                 let name_label = ui.label("Your name: ");

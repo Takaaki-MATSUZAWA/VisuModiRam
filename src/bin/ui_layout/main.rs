@@ -15,7 +15,7 @@ fn main() -> Result<(), eframe::Error> {
         ..Default::default()
     };
     eframe::run_native(
-        "STM32EguiMonitor",
+        "VisuModiRam",
         options,
         Box::new(|cc| Box::new(LayoutTest::new(cc))),
     )

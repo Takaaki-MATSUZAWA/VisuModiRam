@@ -54,7 +54,7 @@ pub struct State {
 
     selected_anchor: Anchor,
 }
-pub struct STM32EguiMonitor {
+pub struct VisuModiRam {
     state: State,
 
     open_dialog: Dialog,
@@ -64,7 +64,7 @@ use egui_modal::Modal;
 use rfd::FileDialog;
 use std::path::PathBuf;
 
-impl STM32EguiMonitor {
+impl VisuModiRam {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         // This gives us image support:
         egui_extras::install_image_loaders(&cc.egui_ctx);
@@ -259,7 +259,7 @@ impl STM32EguiMonitor {
     }
 }
 
-impl eframe::App for STM32EguiMonitor {
+impl eframe::App for VisuModiRam {
     #[cfg(feature = "persistence")]
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, &self.state);

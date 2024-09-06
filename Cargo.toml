@@ -1,6 +1,6 @@
 [package]
-name = "STM32EguiMonitor"
-version = "0.1.0"
+name = "VisuModiRam"
+version = "0.2.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -36,5 +36,5 @@ egui_gauge = "0.1.2"
 ddbug_parser = { git = "https://github.com/gimli-rs/ddbug.git", rev = "b7d6d6a0382f2d7e2d7db9b1ed8450a42740e2c7" }
 
 [[bin]]
-name = "STM32EguiMonitor"
+name = "VisuModiRam"
 path = "src/main.rs"
