@@ -385,6 +385,9 @@ pub fn search_target_mcu_name(elf_file_path: &PathBuf) -> Option<String> {
                 .filter_map(|unit| {
                     let name = unit.name().unwrap();
                     let start_index = name.find("startup_").unwrap_or(0) + "startup_".len();
+                    if start_index >= name.len() {
+                        return None;
+                    }
                     let trimmed_name = &name[start_index..];
                     let mcu_name = trimmed_name.replace(".s", "").to_uppercase();
                     mcu_name.into()
