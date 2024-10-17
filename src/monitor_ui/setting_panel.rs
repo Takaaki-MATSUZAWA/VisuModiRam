@@ -12,6 +12,89 @@ use probe_rs::Probe;
 
 #[derive(Default)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+struct MemInfo {
+    size: f64,
+    used: f64,
+    percent: f64,
+}
+
+impl MemInfo {
+    pub fn set_used_size(&mut self, used: f64) {
+        self.used = used;
+        self.percent = (self.used / self.size) * 100.0;
+    }
+
+    pub fn calc_percent(&mut self) {
+        self.percent = (self.used / self.size) * 100.0;
+    }
+}
+
+#[derive(Default)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+struct TargetMCUInfo {
+    id: String,
+    id_rock: bool,
+    id_not_found: bool,
+    rom: MemInfo,
+    ram: MemInfo,
+}
+
+use probe_rs::config::{get_target_by_name, MemoryRegion};
+
+impl TargetMCUInfo {
+    pub fn check_id(&mut self, id: &str) {
+        if let Ok(chip) = get_target_by_name(id) {
+            self.id = chip.name.clone();
+            self.id_not_found = false;
+            if let Some((ram_size, nvm_size)) = Self::get_memory_sizes(&chip.name) {
+                self.rom.size = nvm_size as f64;
+                self.ram.size = ram_size as f64;
+                self.rom.calc_percent();
+                self.ram.calc_percent();
+            }
+        } else {
+            self.id_not_found = true;
+        }
+    }
+
+    fn get_memory_sizes(chip_name: &str) -> Option<(u32, u32)> {
+        if let Ok(chip) = get_target_by_name(chip_name) {
+            let ram_size = chip
+                .memory_map
+                .iter()
+                .filter_map(|region| {
+                    if let MemoryRegion::Ram(ram) = region {
+                        Some(ram.range.end - ram.range.start)
+                    } else {
+                        None
+                    }
+                })
+                .map(|size| size as f64) // 各要素をf64に変換
+                .sum::<f64>();
+
+            let nvm_size = chip
+                .memory_map
+                .iter()
+                .filter_map(|region| {
+                    if let MemoryRegion::Nvm(nvm) = region {
+                        Some(nvm.range.end - nvm.range.start)
+                    } else {
+                        None
+                    }
+                })
+                .map(|size| size as f64) // 各要素をf64に変換
+                .sum::<f64>();
+
+            Some(((ram_size / 1024.0) as u32, (nvm_size / 1024.0) as u32))
+        } else {
+            None
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------
+#[derive(Default)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 struct SymbolSearch {
     input_elf_path: String,
     search_name: String,
@@ -20,10 +103,8 @@ struct SymbolSearch {
     #[cfg_attr(feature = "serde", serde(skip))]
     elf_parser: Option<ELFParser>,
     project_name: String,
-    target_mcu_id: String,
 
-    rom_size: f64,
-    ram_size: f64,
+    target_mcu: TargetMCUInfo,
 }
 
 #[derive(Default)]
@@ -170,9 +251,12 @@ impl SettingTab {
                     if let Some(mcu_id) =
                         crate::debugging_tools::search_target_mcu_name(&PathBuf::from(&elf_path))
                     {
-                        self.symbol_search.target_mcu_id = mcu_id;
+                        if !self.symbol_search.target_mcu.id_rock {
+                            self.symbol_search.target_mcu.id = mcu_id.clone();
+                            self.symbol_search.target_mcu.check_id(&mcu_id);
+                        }
                     } else {
-                        self.symbol_search.target_mcu_id = "".to_string();
+                        self.symbol_search.target_mcu.id = "".to_string();
                     }
 
                     if let Ok(elf_parser) = ELFParser::launch(&PathBuf::from(&elf_path)) {
@@ -254,11 +338,15 @@ impl SettingTab {
                         let elf_path =
                             format!("{}", shellexpand::tilde(&self.symbol_search.input_elf_path));
                         if let Some(res) = Self::get_memory_usage(&PathBuf::from(&elf_path)) {
-                            self.symbol_search.rom_size = res.0;
-                            self.symbol_search.ram_size = res.1;
+                            //self.symbol_search.target_mcu.rom.used = res.0;
+                            //self.symbol_search.target_mcu.ram.used = res.1;
+                            self.symbol_search.target_mcu.rom.set_used_size(res.0);
+                            self.symbol_search.target_mcu.ram.set_used_size(res.1);
                         } else {
-                            self.symbol_search.rom_size = 0.0;
-                            self.symbol_search.ram_size = 0.0;
+                            //self.symbol_search.target_mcu.rom.used = 0.0;
+                            //self.symbol_search.target_mcu.ram.used = 0.0;
+                            self.symbol_search.target_mcu.rom.set_used_size(0.0);
+                            self.symbol_search.target_mcu.ram.set_used_size(0.0);
                         }
                     }
                 }
@@ -313,16 +401,86 @@ impl SettingTab {
             self.symbol_search.project_name
         ));
         ui.horizontal(|ui| {
-            ui.label("Target MCU : ");
-            ui.text_edit_singleline(&mut self.symbol_search.target_mcu_id);
+            ui.label("Target MCU :");
+            if ui
+                .text_edit_singleline(&mut self.symbol_search.target_mcu.id)
+                .changed()
+            {
+                let id = self.symbol_search.target_mcu.id.clone();
+                self.symbol_search.target_mcu.check_id(id.as_str());
+            }
 
-            if self.symbol_search.target_mcu_id == "" {
+            ui.add(super::widgets::toggle(
+                &mut self.symbol_search.target_mcu.id_rock,
+            ));
+            ui.label("LOCK");
+
+            if self.symbol_search.target_mcu.id == "" {
                 ui.label(RichText::new("Please input Target MCU name").color(Color32::RED));
+            } else if self.symbol_search.target_mcu.id_not_found {
+                ui.label(RichText::new("Target MCU not found").color(Color32::RED));
             }
         });
         ui.label("Memory usage");
-        ui.label(format!("  ROM : {:.2} KByte", self.symbol_search.rom_size));
-        ui.label(format!("  RAM : {:.2} KByte", self.symbol_search.ram_size));
+        egui::Grid::new("memory_useage_grid")
+            .num_columns(5)
+            .spacing([5.0, 4.0])
+            .striped(false)
+            .show(ui, |ui| {
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+                    ui.label(" |     Region");
+                });
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+                    ui.label(" |     Used Size");
+                });
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+                    ui.label(" |     Region Size");
+                });
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+                    ui.label(" |     %age Used |");
+                });
+                ui.end_row();
+
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+                    ui.label("FLASH");
+                });
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+                    ui.label(format!(
+                        "{:>6.2} KB",
+                        self.symbol_search.target_mcu.rom.used
+                    ));
+                });
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+                    ui.label(format!("{:>3} KB", self.symbol_search.target_mcu.rom.size));
+                });
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+                    ui.label(format!(
+                        "{:>6.2} %",
+                        self.symbol_search.target_mcu.rom.percent
+                    ));
+                });
+                ui.end_row();
+
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+                    ui.label("RAM");
+                });
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+                    ui.label(format!(
+                        "{:>6.2} KB",
+                        self.symbol_search.target_mcu.ram.used
+                    ));
+                });
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+                    ui.label(format!("{:>3} KB", self.symbol_search.target_mcu.ram.size));
+                });
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+                    ui.label(format!(
+                        "{:>6.2} %",
+                        self.symbol_search.target_mcu.ram.percent
+                    ));
+                });
+                ui.end_row();
+            });
 
         ui.separator();
         ui.heading("Variable list");
@@ -504,7 +662,7 @@ impl SettingTab {
                     ));
                     ui.label(format!(
                         "target mcu   --> {:?}",
-                        self.symbol_search.target_mcu_id
+                        self.symbol_search.target_mcu.id
                     ));
 
                     ui.separator();
@@ -572,7 +730,7 @@ impl SettingTab {
 
     pub fn get_watch_setting(&mut self) -> WatchSetting {
         WatchSetting {
-            target_mcu: self.symbol_search.target_mcu_id.clone(),
+            target_mcu: self.symbol_search.target_mcu.id.clone(),
             probe_sn: self.probe_setting.select_sn.clone().unwrap_or_default(),
             watch_list: self.get_watch_list(),
         }

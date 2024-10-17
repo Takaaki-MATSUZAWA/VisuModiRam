@@ -3,10 +3,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod debugging_tools;
-mod egui_monitor;
 mod monitor_ui;
+mod visumodiram;
 
-use egui_monitor::VisuModiRam;
+use visumodiram::VisuModiRam;
 
 fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
