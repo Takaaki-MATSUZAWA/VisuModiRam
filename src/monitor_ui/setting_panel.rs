@@ -37,9 +37,10 @@ struct TargetMCUInfo {
     id_not_found: bool,
     rom: MemInfo,
     ram: MemInfo,
+    candidate_list: Vec<String>,
 }
 
-use probe_rs::config::{get_target_by_name, MemoryRegion};
+use probe_rs::config::{get_target_by_name, MemoryRegion, search_chips};
 
 impl TargetMCUInfo {
     pub fn check_id(&mut self, id: &str) {
@@ -54,6 +55,26 @@ impl TargetMCUInfo {
             }
         } else {
             self.id_not_found = true;
+            // idを検索し、結果が空の場合は後ろから1文字ずつ削って再検索
+            let mut search_id = id.to_string();
+            while search_id.len() > 0 {
+                if let Ok(chips) = search_chips(&search_id) {
+                    if !chips.is_empty() {
+                        self.candidate_list = chips.into_iter().map(|chip| {
+                            let (ram, rom) = Self::get_memory_sizes(&chip).unwrap_or((0, 0));
+                            format!("{:<10} (RAM: {:>3}KB, ROM: {:>3}KB)", chip, ram, rom)
+                        }).collect();
+                        break;
+                    }
+                }
+                search_id.pop();
+            }
+            
+            // 候補が見つからなかった場合
+            if self.candidate_list.is_empty() {
+                self.id_not_found = true;
+            }
+
         }
     }
 
@@ -404,6 +425,14 @@ impl SettingTab {
             ui.label("Target MCU :");
             if ui
                 .text_edit_singleline(&mut self.symbol_search.target_mcu.id)
+                .on_hover_ui(|ui| {
+                    if self.symbol_search.target_mcu.id_not_found {
+                        ui.label("Candidate List");
+                        for candidate in &self.symbol_search.target_mcu.candidate_list {
+                            ui.label(format!("{}", candidate));
+                        }
+                    }
+                })
                 .changed()
             {
                 let id = self.symbol_search.target_mcu.id.clone();
