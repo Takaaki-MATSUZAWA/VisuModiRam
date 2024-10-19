@@ -1,4 +1,5 @@
 use ddbug_parser::{File, FileHash, Member, TypeKind, TypeModifierKind, TypeOffset, Variable};
+use probe_rs::config::get_target_by_name;
 use std::convert::From;
 use std::error;
 use std::fmt;
@@ -374,7 +375,8 @@ pub fn get_base_type(type_offset: TypeOffset, hash: &FileHash) -> Option<String>
 pub fn search_target_mcu_name(elf_file_path: &PathBuf) -> Option<String> {
     let project_name = elf_file_path.file_stem()?.to_str()?.to_string();
     let mut project_dir = elf_file_path.parent();
-
+    let mut return_mcu_id_tmp = String::new();
+    
     // ELFを解析してMCUの名前を特定
     if let Some(mcu_id) = ddbug_parser::File::parse(elf_file_path.to_str().unwrap().to_string())
         .ok()
@@ -395,7 +397,30 @@ pub fn search_target_mcu_name(elf_file_path: &PathBuf) -> Option<String> {
                 .find(|name| name.starts_with("STM32"))
         })
     {
-        return Some(mcu_id);
+        return_mcu_id_tmp = mcu_id.clone();
+        if let Ok(_) = get_target_by_name(&mcu_id) {
+            return Some(return_mcu_id_tmp);
+        }
+    }
+
+    // elf_file_pathと同じディレクトリにrules.ninjaファイルがある場合の処理
+    if let Some(ninja_file_path) = elf_file_path.parent().map(|p| p.join("CMakeFiles/rules.ninja")) {
+        if ninja_file_path.is_file() {
+            if let Ok(content) = std::fs::read_to_string(&ninja_file_path) {
+                for line in content.lines() {
+                    if line.contains("_FLASH.ld") {
+                        if let Some(start) = line.rfind('/') {
+                            if let Some(end) = line[start+1..].find("_FLASH.ld") {
+                                return_mcu_id_tmp = line[start+1..start+1+end].to_string();
+                                if let Ok(_) = get_target_by_name(&return_mcu_id_tmp) {
+                                    return Some(return_mcu_id_tmp);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     while let Some(path) = project_dir {
@@ -411,10 +436,16 @@ pub fn search_target_mcu_name(elf_file_path: &PathBuf) -> Option<String> {
         let content = std::fs::read_to_string(&ioc_file_path).ok()?;
         for line in content.lines() {
             if line.starts_with("ProjectManager.DeviceId=") {
-                return Some(line["ProjectManager.DeviceId=".len()..].to_string());
+                return_mcu_id_tmp = line["ProjectManager.DeviceId=".len()..].to_string();
+                if let Ok(_) = get_target_by_name(&return_mcu_id_tmp) {
+                    return Some(return_mcu_id_tmp);
+                }
             }
         }
     }
 
+    if !return_mcu_id_tmp.is_empty() {
+        return Some(return_mcu_id_tmp);
+    } 
     None
 }
