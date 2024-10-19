@@ -1,5 +1,6 @@
 use ddbug_parser::{File, FileHash, Member, TypeKind, TypeModifierKind, TypeOffset, Variable};
 use probe_rs::config::get_target_by_name;
+use std::any::Any;
 use std::convert::From;
 use std::error;
 use std::fmt;
@@ -218,6 +219,7 @@ impl ELFParser {
 pub fn get_variable_info(var: &Variable, hash: &FileHash) -> Vec<VariableInfo> {
     let mut vars_vec = Vec::new();
     let typedata = var.ty(hash);
+    
     match typedata.clone().unwrap().kind() {
         // ベース型の場合はそのままVecに追加
         TypeKind::Base(typeinfo) => {
@@ -226,19 +228,24 @@ pub fn get_variable_info(var: &Variable, hash: &FileHash) -> Vec<VariableInfo> {
                 address: var.address().unwrap(),
                 types: typeinfo.name().unwrap().to_string(),
                 size: typeinfo.byte_size().unwrap() as usize,
-            };
+            };            
             vars_vec.push(info);
         }
 
-        // メンバー変数を再帰的に探す
+        // 定義型は型を調べてから追加
         TypeKind::Def(typeinfo) => {
-            for member in typeinfo.ty(hash).clone().unwrap().members() {
-                vars_vec.extend(get_member(
-                    member,
-                    hash,
-                    var.name().unwrap().to_string(),
-                    var.address().unwrap(),
-                ));
+            match typeinfo.ty(hash).unwrap().kind() {
+                TypeKind::Def(typeinfo) => {
+                    let info = VariableInfo {
+                        name: var.name().unwrap().to_string(),
+                        address: var.address().unwrap(),
+                        types: get_base_type(typeinfo.ty(hash).unwrap().offset(), hash)
+                            .unwrap(),
+                        size: typeinfo.byte_size(hash).unwrap() as usize,
+                    };
+                    vars_vec.push(info);
+                }
+                _ => {}
             }
         }
 
