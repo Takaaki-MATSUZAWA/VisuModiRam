@@ -2,7 +2,7 @@
 name = "VisuModiRam"
 description = "Debugging tools for STM32 to visualize or modify variables on RAM"
 authors = ["Takaaki-MATSUZAWA"]
-version = "0.2.0"
+version = "0.2.1"
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/Takaaki-MATSUZAWA/VisuModiRam"
