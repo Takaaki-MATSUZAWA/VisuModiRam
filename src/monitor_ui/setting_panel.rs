@@ -9,6 +9,7 @@ use std::path::PathBuf;
 
 use crate::debugging_tools::*;
 use probe_rs::Probe;
+use regex::Regex;
 
 #[derive(Default)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -40,7 +41,7 @@ struct TargetMCUInfo {
     candidate_list: Vec<String>,
 }
 
-use probe_rs::config::{get_target_by_name, MemoryRegion, search_chips};
+use probe_rs::config::{get_target_by_name, search_chips, MemoryRegion};
 
 impl TargetMCUInfo {
     pub fn check_id(&mut self, id: &str) {
@@ -60,21 +61,23 @@ impl TargetMCUInfo {
             while search_id.len() > 0 {
                 if let Ok(chips) = search_chips(&search_id) {
                     if !chips.is_empty() {
-                        self.candidate_list = chips.into_iter().map(|chip| {
-                            let (ram, rom) = Self::get_memory_sizes(&chip).unwrap_or((0, 0));
-                            format!("{:<10} (RAM: {:>3}KB, ROM: {:>3}KB)", chip, ram, rom)
-                        }).collect();
+                        self.candidate_list = chips
+                            .into_iter()
+                            .map(|chip| {
+                                let (ram, rom) = Self::get_memory_sizes(&chip).unwrap_or((0, 0));
+                                format!("{:<10} (RAM: {:>3}KB, ROM: {:>3}KB)", chip, ram, rom)
+                            })
+                            .collect();
                         break;
                     }
                 }
                 search_id.pop();
             }
-            
+
             // 候補が見つからなかった場合
             if self.candidate_list.is_empty() {
                 self.id_not_found = true;
             }
-
         }
     }
 
@@ -121,6 +124,7 @@ struct SymbolSearch {
     search_name: String,
     variable_list: Vec<VariableInfo>,
     selected_list: Vec<SelectableVariableInfo>,
+    expand_list_flag: bool,
     #[cfg_attr(feature = "serde", serde(skip))]
     elf_parser: Option<ELFParser>,
     project_name: String,
@@ -359,13 +363,9 @@ impl SettingTab {
                         let elf_path =
                             format!("{}", shellexpand::tilde(&self.symbol_search.input_elf_path));
                         if let Some(res) = Self::get_memory_usage(&PathBuf::from(&elf_path)) {
-                            //self.symbol_search.target_mcu.rom.used = res.0;
-                            //self.symbol_search.target_mcu.ram.used = res.1;
                             self.symbol_search.target_mcu.rom.set_used_size(res.0);
                             self.symbol_search.target_mcu.ram.set_used_size(res.1);
                         } else {
-                            //self.symbol_search.target_mcu.rom.used = 0.0;
-                            //self.symbol_search.target_mcu.ram.used = 0.0;
                             self.symbol_search.target_mcu.rom.set_used_size(0.0);
                             self.symbol_search.target_mcu.ram.set_used_size(0.0);
                         }
@@ -516,6 +516,8 @@ impl SettingTab {
         ui.horizontal(|ui| {
             ui.label("filler or variable name");
             ui.text_edit_singleline(&mut self.symbol_search.search_name);
+            ui.label("  ");
+            ui.checkbox(&mut self.symbol_search.expand_list_flag, "Expand List");
         });
 
         const CHECK_CLM: f32 = 15.;
@@ -552,6 +554,10 @@ impl SettingTab {
             })
             .body(|mut body| {
                 for selected in self.symbol_search.selected_list.iter_mut() {
+                    let re = Regex::new(r"\[[1-9]+").unwrap();
+                    if !self.symbol_search.expand_list_flag && re.is_match(&selected.name) {
+                        continue;
+                    }
                     if selected
                         .name
                         .to_lowercase()

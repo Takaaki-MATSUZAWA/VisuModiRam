@@ -1,6 +1,5 @@
 use ddbug_parser::{File, FileHash, Member, TypeKind, TypeModifierKind, TypeOffset, Variable};
 use probe_rs::config::get_target_by_name;
-use std::any::Any;
 use std::convert::From;
 use std::error;
 use std::fmt;
@@ -219,7 +218,7 @@ impl ELFParser {
 pub fn get_variable_info(var: &Variable, hash: &FileHash) -> Vec<VariableInfo> {
     let mut vars_vec = Vec::new();
     let typedata = var.ty(hash);
-    
+
     match typedata.clone().unwrap().kind() {
         // ベース型の場合はそのままVecに追加
         TypeKind::Base(typeinfo) => {
@@ -228,28 +227,25 @@ pub fn get_variable_info(var: &Variable, hash: &FileHash) -> Vec<VariableInfo> {
                 address: var.address().unwrap(),
                 types: typeinfo.name().unwrap().to_string(),
                 size: typeinfo.byte_size().unwrap() as usize,
-            };            
+            };
             vars_vec.push(info);
         }
 
         // 定義型は型を調べてから追加
         TypeKind::Def(typeinfo) => {
-            match typeinfo.ty(hash).unwrap().kind() {
-                TypeKind::Def(typeinfo) => {
-                    let info = VariableInfo {
-                        name: var.name().unwrap().to_string(),
-                        address: var.address().unwrap(),
-                        types: get_base_type(typeinfo.ty(hash).unwrap().offset(), hash)
-                            .unwrap(),
-                        size: typeinfo.byte_size(hash).unwrap() as usize,
-                    };
-                    vars_vec.push(info);
-                }
-                _ => {}
+            let types = get_base_type(typeinfo.ty(hash).unwrap().offset(), hash);
+            if let Some(types) = types {
+                let info = VariableInfo {
+                    name: var.name().unwrap().to_string(),
+                    address: var.address().unwrap(),
+                    types: types,
+                    size: typeinfo.byte_size(hash).unwrap() as usize,
+                };
+                vars_vec.push(info);
             }
         }
 
-        // メンバー変数を再帰的に探す
+        // メンバー変を再帰的に探す
         TypeKind::Struct(typeinfo) => {
             for member in typeinfo.members() {
                 vars_vec.extend(get_member(
@@ -259,6 +255,22 @@ pub fn get_variable_info(var: &Variable, hash: &FileHash) -> Vec<VariableInfo> {
                     var.address().unwrap(),
                 ));
             }
+        }
+
+        // 配列の場合は展開してそれぞれの要素をvars_vecに追加
+        TypeKind::Array(typeinfo) => {
+            let element_type = get_base_type(typeinfo.element_type(hash).unwrap().offset(), hash);
+            let element_size = typeinfo.element_byte_size(hash).unwrap() as usize;
+            let array_sizes: Vec<u64> = typeinfo.counts().filter_map(|x| x).collect();
+
+            vars_vec.extend(process_array_dimension(
+                0,
+                var.address().unwrap(),
+                var.name().unwrap().to_string(),
+                element_size,
+                &element_type,
+                &array_sizes,
+            ));
         }
         _ => {} // 配列は後ほど実装を考える
     }
@@ -358,7 +370,66 @@ pub fn get_member(
                 }
             }
         }
+        // 配列の場合の処理
+        TypeKind::Array(typeinfo) => {
+            let member_name = format!("{}.{}", parent_name, member.name().unwrap());
+            let member_address = parent_address + (member.bit_offset() / 8);
+            let element_type = get_base_type(typeinfo.element_type(hash).unwrap().offset(), hash);
+            let element_size = typeinfo.element_byte_size(hash).unwrap() as usize;
+            let array_sizes: Vec<u64> = typeinfo.counts().filter_map(|x| x).collect();
+
+            vars_vec.extend(process_array_dimension(
+                0,
+                member_address,
+                member_name,
+                element_size,
+                &element_type,
+                &array_sizes,
+            ));
+        }
         _ => {}
+    }
+
+    vars_vec
+}
+
+pub fn process_array_dimension(
+    current_index: usize,
+    current_address: u64,
+    current_name: String,
+    element_size: usize,
+    element_type: &Option<String>,
+    array_sizes: &[u64],
+) -> Vec<VariableInfo> {
+    let mut vars_vec = Vec::new();
+
+    if current_index == array_sizes.len() {
+        if let Some(_) = element_type {
+            let info = VariableInfo {
+                name: current_name,
+                address: current_address,
+                types: element_type.clone().unwrap(),
+                size: element_size,
+            };
+            vars_vec.push(info);
+        }
+        return vars_vec;
+    }
+
+    let stride: u64 =
+        array_sizes[current_index + 1..].iter().product::<u64>() * element_size as u64;
+
+    for i in 0..array_sizes[current_index] {
+        let new_address = current_address + (i * stride);
+        let new_name = format!("{}[{}]", current_name, i);
+        vars_vec.extend(process_array_dimension(
+            current_index + 1,
+            new_address,
+            new_name,
+            element_size,
+            element_type,
+            array_sizes,
+        ));
     }
 
     vars_vec
@@ -370,7 +441,7 @@ pub fn get_base_type(type_offset: TypeOffset, hash: &FileHash) -> Option<String>
         match typedata.kind().clone() {
             TypeKind::Base(typeinfo) => Some(typeinfo.name().unwrap().to_string()),
             TypeKind::Def(typeinfo) => get_base_type(typeinfo.ty(hash).unwrap().offset(), hash),
-            _ => None, // その他の形式は必要に応じて実装していく予定
+            _ => None, // その他の形式は必要応じて実装していく予定
         }
     } else {
         None
@@ -383,7 +454,7 @@ pub fn search_target_mcu_name(elf_file_path: &PathBuf) -> Option<String> {
     let project_name = elf_file_path.file_stem()?.to_str()?.to_string();
     let mut project_dir = elf_file_path.parent();
     let mut return_mcu_id_tmp = String::new();
-    
+
     // ELFを解析してMCUの名前を特定
     if let Some(mcu_id) = ddbug_parser::File::parse(elf_file_path.to_str().unwrap().to_string())
         .ok()
@@ -410,15 +481,18 @@ pub fn search_target_mcu_name(elf_file_path: &PathBuf) -> Option<String> {
         }
     }
 
-    // elf_file_pathと同じディレクトリにrules.ninjaファイルがある場合の処理
-    if let Some(ninja_file_path) = elf_file_path.parent().map(|p| p.join("CMakeFiles/rules.ninja")) {
+    // elf_file_pathと同じディレクトリのCMakeFiles/rules.ninjaファイルがある場合の処理
+    if let Some(ninja_file_path) = elf_file_path
+        .parent()
+        .map(|p| p.join("CMakeFiles/rules.ninja"))
+    {
         if ninja_file_path.is_file() {
             if let Ok(content) = std::fs::read_to_string(&ninja_file_path) {
                 for line in content.lines() {
                     if line.contains("_FLASH.ld") {
                         if let Some(start) = line.rfind('/') {
-                            if let Some(end) = line[start+1..].find("_FLASH.ld") {
-                                return_mcu_id_tmp = line[start+1..start+1+end].to_string();
+                            if let Some(end) = line[start + 1..].find("_FLASH.ld") {
+                                return_mcu_id_tmp = line[start + 1..start + 1 + end].to_string();
                                 if let Ok(_) = get_target_by_name(&return_mcu_id_tmp) {
                                     return Some(return_mcu_id_tmp);
                                 }
@@ -437,7 +511,7 @@ pub fn search_target_mcu_name(elf_file_path: &PathBuf) -> Option<String> {
         project_dir = path.parent();
     }
 
-    // STM32Cube用のiocファイルからDeviceIdを特定
+    // STM32Cube用のiocファルからDeviceIdを特定
     let ioc_file_path = project_dir?.join(format!("{}.ioc", &project_name));
     if ioc_file_path.is_file() {
         let content = std::fs::read_to_string(&ioc_file_path).ok()?;
@@ -453,6 +527,6 @@ pub fn search_target_mcu_name(elf_file_path: &PathBuf) -> Option<String> {
 
     if !return_mcu_id_tmp.is_empty() {
         return Some(return_mcu_id_tmp);
-    } 
+    }
     None
 }
