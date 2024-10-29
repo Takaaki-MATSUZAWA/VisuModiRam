@@ -233,7 +233,7 @@ pub fn get_variable_info(var: &Variable, hash: &FileHash) -> Vec<VariableInfo> {
 
         // 定義型は型を調べてから追加
         TypeKind::Def(typeinfo) => {
-            let types = get_base_type(typeinfo.ty(hash).unwrap().offset(), hash);
+            let types = get_base_type(typeinfo.clone().ty(hash).unwrap().offset(), hash);
             if let Some(types) = types {
                 let info = VariableInfo {
                     name: var.name().unwrap().to_string(),
@@ -242,7 +242,16 @@ pub fn get_variable_info(var: &Variable, hash: &FileHash) -> Vec<VariableInfo> {
                     size: typeinfo.byte_size(hash).unwrap() as usize,
                 };
                 vars_vec.push(info);
-            }
+            } else {
+                for member in typeinfo.clone().ty(hash).unwrap().members() {
+                        vars_vec.extend(get_member(
+                        member,
+                        hash,
+                        var.name().unwrap().to_string(),
+                        var.address().unwrap(),
+                        )); 
+                    }
+                }
         }
 
         // メンバー変を再帰的に探す
