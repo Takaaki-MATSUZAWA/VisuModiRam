@@ -1,5 +1,6 @@
 use eframe::egui::{self, Color32, RichText};
 use egui_extras::{Column, TableBuilder};
+use egui_plot::{Line, Plot, PlotPoints};
 use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 
@@ -68,6 +69,10 @@ pub struct LoggingTab {
     #[cfg_attr(feature = "serde", serde(default = "default_display_count"))]
     display_data_count: usize,
     
+    // プロット表示用
+    plot_visible_variables: Vec<String>,
+    plot_auto_range: bool,
+    
     // 統計情報
     #[cfg_attr(feature = "serde", serde(skip))]
     samples_per_second: f64,
@@ -103,7 +108,30 @@ impl eframe::App for LoggingTab {
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            self.data_display_ui(ui);
+            // データ表示部分を上下に分割
+            ui.horizontal(|ui| {
+                ui.set_height(ctx.available_rect().height());
+                
+                // 左側: データテーブル
+                ui.allocate_ui_with_layout(
+                    [ctx.available_rect().width() * 0.4, ctx.available_rect().height()].into(),
+                    egui::Layout::top_down(egui::Align::Min),
+                    |ui| {
+                        self.data_display_ui(ui);
+                    }
+                );
+                
+                ui.separator();
+                
+                // 右側: プロット表示
+                ui.allocate_ui_with_layout(
+                    [ctx.available_rect().width() * 0.6, ctx.available_rect().height()].into(),
+                    egui::Layout::top_down(egui::Align::Min),
+                    |ui| {
+                        self.plot_display_ui(ui);
+                    }
+                );
+            });
         });
     }
 }
@@ -418,6 +446,120 @@ impl LoggingTab {
                     });
                 }
             });
+    }
+
+    fn plot_display_ui(&mut self, ui: &mut egui::Ui) {
+        ui.heading("📊 Data Plot");
+        ui.separator();
+
+        // プロット制御
+        ui.horizontal(|ui| {
+            ui.label("Plot Variables:");
+            ui.checkbox(&mut self.plot_auto_range, "Auto Range");
+        });
+
+        // 変数選択（ログ終了時のみ有効）
+        let logging_stopped = matches!(self.logging_state, LoggingState::Stopped);
+        ui.add_enabled_ui(logging_stopped, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Show:");
+                for var_info in &self.probe_if.setting.watch_list {
+                    let mut is_visible = self.plot_visible_variables.contains(&var_info.name);
+                    if ui.checkbox(&mut is_visible, &var_info.name).changed() {
+                        if is_visible {
+                            if !self.plot_visible_variables.contains(&var_info.name) {
+                                self.plot_visible_variables.push(var_info.name.clone());
+                            }
+                        } else {
+                            self.plot_visible_variables.retain(|x| x != &var_info.name);
+                        }
+                    }
+                }
+            });
+        });
+
+        if !logging_stopped {
+            ui.label(RichText::new("🔴 Plot is available after logging stops").color(Color32::YELLOW));
+            return;
+        }
+
+        if self.plot_visible_variables.is_empty() {
+            ui.label("Select variables to plot");
+            return;
+        }
+
+        ui.separator();
+
+        // データ取得とプロット表示
+        let plot_data = self.get_plot_data();
+        
+        if plot_data.is_empty() {
+            ui.label("No data available for plotting");
+            return;
+        }
+
+        // プロット描画
+        let plot = Plot::new("logging_plot")
+            .legend(egui_plot::Legend::default())
+            .height(400.0)
+            .allow_zoom(true)
+            .allow_drag(true)
+            .allow_scroll(true);
+
+        let plot = if self.plot_auto_range {
+            plot.auto_bounds([true, true].into())
+        } else {
+            plot
+        };
+
+        plot.show(ui, |plot_ui| {
+            // 各変数のラインを描画
+            for (var_name, data) in &plot_data {
+                if !data.is_empty() {
+                    let points: PlotPoints = data.iter()
+                        .map(|[time, value]| [*time, *value])
+                        .collect();
+                    
+                    let line = Line::new(points)
+                        .name(var_name)
+                        .width(2.0);
+                    
+                    plot_ui.line(line);
+                }
+            }
+        });
+
+        // データ統計情報
+        ui.separator();
+        ui.collapsing("📈 Plot Statistics", |ui| {
+            for (var_name, data) in &plot_data {
+                if !data.is_empty() {
+                    let values: Vec<f64> = data.iter().map(|[_, value]| *value).collect();
+                    let min_val = values.iter().fold(f64::INFINITY, |a, &b| a.min(b));
+                    let max_val = values.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+                    let avg_val = values.iter().sum::<f64>() / values.len() as f64;
+                    
+                    ui.label(format!("{}: Min={:.3}, Max={:.3}, Avg={:.3}, Samples={}", 
+                        var_name, min_val, max_val, avg_val, data.len()));
+                }
+            }
+        });
+    }
+
+    fn get_plot_data(&mut self) -> std::collections::HashMap<String, Vec<[f64; 2]>> {
+        let mut plot_data = std::collections::HashMap::new();
+        
+        // 大きな時間窓でデータを取得（全データ）
+        let large_time_window = 3600000; // 1時間分
+        
+        for var_name in &self.plot_visible_variables {
+            let data = self.probe_if.get_log_vec(var_name, Some(large_time_window));
+            if !data.is_empty() {
+                plot_data.insert(var_name.clone(), data);
+            }
+        }
+        
+        plot_data
     }
 
     fn start_logging(&mut self) {

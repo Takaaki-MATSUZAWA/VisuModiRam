@@ -7,6 +7,7 @@ enum Anchor {
     SettingTab,
     MainMonitorTab,
     LoggingTab,
+    DataViewerTab,
 }
 
 impl std::fmt::Display for Anchor {
@@ -53,6 +54,7 @@ pub struct State {
     setting_tab: SettingTab,
     main_tab: MainMonitorTab,
     logging_tab: LoggingTab,
+    data_viewer_tab: DataViewerTab,
 
     selected_anchor: Anchor,
 }
@@ -122,6 +124,11 @@ impl VisuModiRam {
                 "🚀 High-Speed Logging",
                 Anchor::LoggingTab,
                 &mut self.state.logging_tab as &mut dyn eframe::App,
+            ),
+            (
+                "📊 Data Viewer",
+                Anchor::DataViewerTab,
+                &mut self.state.data_viewer_tab as &mut dyn eframe::App,
             ),
         ];
 
