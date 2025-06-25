@@ -3,7 +3,7 @@ use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 use std::time::Duration;
 
 use super::{
-    widgets::{self, WidgetApp},
+    widgets::{self, WidgetApp, WidgetWindowConfig},
     WidgetWindow,
 };
 use crate::debugging_tools::ProbeInterface;
@@ -11,8 +11,10 @@ use crate::debugging_tools::ProbeInterface;
 #[derive(Default)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct MainMonitorTab {
-    #[cfg_attr(feature = "serde", serde(skip))]
+    #[cfg_attr(feature = "serde", serde(skip, default = "default_widgets"))]
     widgets: Vec<Box<WidgetWindow>>,
+    #[cfg_attr(feature = "serde", serde(default = "default_widget_configs"))]
+    widget_configs: Vec<WidgetWindowConfig>,
     window_cnt: u32,
     #[cfg_attr(feature = "serde", serde(skip))]
     remove_que: Option<u32>,
@@ -21,7 +23,16 @@ pub struct MainMonitorTab {
     hide_title_bar: bool,
     move_and_resize_lock: bool,
 
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub probe_if: ProbeInterface,
+}
+
+fn default_widgets() -> Vec<Box<WidgetWindow>> {
+    Vec::new()
+}
+
+fn default_widget_configs() -> Vec<WidgetWindowConfig> {
+    Vec::new()
 }
 
 impl eframe::App for MainMonitorTab {
@@ -315,6 +326,27 @@ impl MainMonitorTab {
     fn remove_widget_exec(&mut self) {
         if let Some(id) = self.remove_que {
             self.widgets.retain(|x| x.id != id);
+        }
+    }
+
+    // Serialization support methods
+    pub fn prepare_for_save(&mut self) {
+        // Convert widgets to configs before saving
+        self.widget_configs = self.widgets.iter()
+            .map(|widget| WidgetWindowConfig::from_widget_window(widget))
+            .collect();
+    }
+
+    pub fn restore_from_load(&mut self) {
+        // Restore widgets from configs after loading
+        self.widgets = self.widget_configs.iter()
+            .cloned()
+            .map(|config| Box::new(config.to_widget_window()))
+            .collect();
+        
+        // Update window_cnt to avoid ID conflicts
+        if let Some(max_id) = self.widgets.iter().map(|w| w.id).max() {
+            self.window_cnt = max_id;
         }
     }
 }

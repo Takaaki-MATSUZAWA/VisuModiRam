@@ -6,11 +6,11 @@ use crate::debugging_tools::*;
 
 #[derive(Default, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-struct ButtonInfo {
-    id: u32,
-    name: String,
-    symbol_name: String,
-    send_value: f64,
+pub struct ButtonInfo {
+    pub id: u32,
+    pub name: String,
+    pub symbol_name: String,
+    pub send_value: f64,
 }
 
 impl ButtonInfo {
@@ -145,5 +145,25 @@ impl super::WidgetApp for PushButton {
 
     fn set_probe(&mut self, probe: ProbeInterface) {
         self.mcu.set_probe(probe);
+    }
+
+    fn to_config(&self) -> super::WidgetConfig {
+        super::WidgetConfig::PushButton(super::PushButtonConfig {
+            buttons: self.buttons.clone(),
+            btn_cnt: self.btn_cnt,
+        })
+    }
+
+    fn from_config(config: super::WidgetConfig) -> Box<dyn super::WidgetApp> {
+        match config {
+            super::WidgetConfig::PushButton(config) => {
+                Box::new(PushButton {
+                    mcu: super::MCUinterface::default(),
+                    buttons: config.buttons,
+                    btn_cnt: config.btn_cnt,
+                })
+            }
+            _ => Box::new(PushButton::default()),
+        }
     }
 }

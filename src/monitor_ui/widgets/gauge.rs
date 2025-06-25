@@ -51,7 +51,7 @@ impl LayoutSettings {
 // ----------------------------------------------------------------------------
 #[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-struct GaugeSetting {
+pub struct GaugeSetting {
     pub min: f64,
     pub max: f64,
     pub size: f32,
@@ -171,6 +171,28 @@ impl super::WidgetApp for Gauges {
 
     fn disalbe_scroll_area(&self) -> bool {
         true
+    }
+
+    fn to_config(&self) -> super::WidgetConfig {
+        super::WidgetConfig::Gauge(super::GaugeConfig {
+            layout_settings: self.layout,
+            sliders: self.sliders.clone(),
+            common_size: self.common_size,
+        })
+    }
+
+    fn from_config(config: super::WidgetConfig) -> Box<dyn super::WidgetApp> {
+        match config {
+            super::WidgetConfig::Gauge(config) => {
+                Box::new(Gauges {
+                    mcu: super::MCUinterface::default(),
+                    sliders: config.sliders,
+                    layout: config.layout_settings,
+                    common_size: config.common_size,
+                })
+            }
+            _ => Box::new(Gauges::default()),
+        }
     }
 }
 

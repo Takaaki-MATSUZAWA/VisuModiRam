@@ -58,4 +58,21 @@ impl super::WidgetApp for TableView {
     fn set_probe(&mut self, probe: ProbeInterface) {
         self.mcu.set_probe(probe);
     }
+
+    fn to_config(&self) -> super::WidgetConfig {
+        super::WidgetConfig::TableView(super::TableViewConfig {
+            // TableView has no specific configuration to save
+        })
+    }
+
+    fn from_config(config: super::WidgetConfig) -> Box<dyn super::WidgetApp> {
+        match config {
+            super::WidgetConfig::TableView(_config) => {
+                Box::new(TableView {
+                    mcu: super::MCUinterface::default(),
+                })
+            }
+            _ => Box::new(TableView::default()),
+        }
+    }
 }

@@ -20,6 +20,118 @@ use eframe::egui::{self, LayerId, Pos2, Rect, Vec2};
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 
 use crate::debugging_tools::*;
+
+// ----------------------------------------------------------------------------
+// Widget Configuration Enums for Serialization
+#[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub enum WidgetConfig {
+    EditTable(EditTableConfig),
+    GraphMonitor(GraphMonitorConfig),
+    Gauge(GaugeConfig),
+    TableView(TableViewConfig),
+    Slider(SliderConfig),
+    ToggleSwitch(ToggleSwitchConfig),
+    PushButton(PushButtonConfig),
+}
+
+#[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub struct EditTableConfig {
+    pub edit_texts: egui::ahash::HashMap<String, String>,
+}
+
+#[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub struct GraphMonitorConfig {
+    pub time_window: u64,
+    pub entire_duration_flag: bool,
+}
+
+#[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub struct GaugeConfig {
+    pub layout_settings: gauge::LayoutSettings,
+    pub sliders: egui::ahash::HashMap<String, gauge::GaugeSetting>,
+    pub common_size: f32,
+}
+
+#[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub struct TableViewConfig {
+    // TableView has no specific configuration to save
+}
+
+#[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub struct SliderConfig {
+    pub sliders: egui::ahash::HashMap<String, slider::SliderSetting>,
+}
+
+#[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub struct ToggleSwitchConfig {
+    pub toggle_sw: egui::ahash::HashMap<String, toggle_switch::ToggleSwitchSetting>,
+}
+
+#[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub struct PushButtonConfig {
+    pub buttons: Vec<button::ButtonInfo>,
+    pub btn_cnt: u32,
+}
+
+#[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub struct WidgetWindowConfig {
+    pub name: String,
+    pub id: u32,
+    pub rect: Rect,
+    pub title_bar: bool,
+    pub lock: bool,
+    pub selected_anchor: Anchor,
+    pub widget_config: WidgetConfig,
+    pub select_tab: WatchSymbolSelectTab,
+}
+
+impl WidgetWindowConfig {
+    pub fn from_widget_window(window: &WidgetWindow) -> Self {
+        Self {
+            name: window.name.clone(),
+            id: window.id,
+            rect: window.rect,
+            title_bar: window.title_bar,
+            lock: window.lock,
+            selected_anchor: window.state.selected_anchor,
+            widget_config: window.state.monitor_tab.to_config(),
+            select_tab: window.state.select_tab.clone(),
+        }
+    }
+
+    pub fn to_widget_window(self) -> WidgetWindow {
+        let widget_app = match self.widget_config {
+            WidgetConfig::EditTable(_) => EditTable::from_config(self.widget_config),
+            WidgetConfig::GraphMonitor(_) => GraphMonitor::from_config(self.widget_config),
+            WidgetConfig::Gauge(_) => Gauges::from_config(self.widget_config),
+            WidgetConfig::TableView(_) => TableView::from_config(self.widget_config),
+            WidgetConfig::Slider(_) => Sliders::from_config(self.widget_config),
+            WidgetConfig::ToggleSwitch(_) => ToggleSwitch::from_config(self.widget_config),
+            WidgetConfig::PushButton(_) => PushButton::from_config(self.widget_config),
+        };
+
+        let mut window = WidgetWindow::new(
+            self.id,
+            self.name,
+            self.title_bar,
+            self.lock,
+            widget_app,
+        );
+        window.rect = self.rect;
+        window.state.selected_anchor = self.selected_anchor;
+        window.state.select_tab = self.select_tab;
+        window
+    }
+}
 // ----------------------------------------------------------------------------
 #[derive(Default, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -64,6 +176,10 @@ pub trait WidgetApp {
     fn sync(&mut self) {}
 
     fn send_last_value(&mut self) {}
+
+    // Configuration serialization methods
+    fn to_config(&self) -> WidgetConfig;
+    fn from_config(config: WidgetConfig) -> Box<dyn WidgetApp> where Self: Sized;
 }
 // ----------------------------------------------------------------------------
 

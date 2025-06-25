@@ -7,7 +7,7 @@ use crate::debugging_tools::*;
 
 #[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-struct ToggleSwitchSetting {
+pub struct ToggleSwitchSetting {
     pub off_value: f64,
     pub on_value: f64,
     pub state: bool,
@@ -173,6 +173,24 @@ impl super::WidgetApp for ToggleSwitch {
             }
 
             self.toggle_sw.insert(symbol.name, tgl.clone());
+        }
+    }
+
+    fn to_config(&self) -> super::WidgetConfig {
+        super::WidgetConfig::ToggleSwitch(super::ToggleSwitchConfig {
+            toggle_sw: self.toggle_sw.clone(),
+        })
+    }
+
+    fn from_config(config: super::WidgetConfig) -> Box<dyn super::WidgetApp> {
+        match config {
+            super::WidgetConfig::ToggleSwitch(config) => {
+                Box::new(ToggleSwitch {
+                    mcu: super::MCUinterface::default(),
+                    toggle_sw: config.toggle_sw,
+                })
+            }
+            _ => Box::new(ToggleSwitch::default()),
         }
     }
 }

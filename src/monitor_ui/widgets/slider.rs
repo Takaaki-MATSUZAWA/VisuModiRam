@@ -8,7 +8,7 @@ use crate::debugging_tools::*;
 // ----------------------------------------------------------------------------
 #[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-struct SliderSetting {
+pub struct SliderSetting {
     pub min: f64,
     pub max: f64,
     pub step: f64,
@@ -218,6 +218,24 @@ impl super::WidgetApp for Sliders {
                     probe.insert_wirte_que(variable_info, format!("{}", value).as_str());
                 }
             }
+        }
+    }
+
+    fn to_config(&self) -> super::WidgetConfig {
+        super::WidgetConfig::Slider(super::SliderConfig {
+            sliders: self.sliders.clone(),
+        })
+    }
+
+    fn from_config(config: super::WidgetConfig) -> Box<dyn super::WidgetApp> {
+        match config {
+            super::WidgetConfig::Slider(config) => {
+                Box::new(Sliders {
+                    mcu: super::MCUinterface::default(),
+                    sliders: config.sliders,
+                })
+            }
+            _ => Box::new(Sliders::default()),
         }
     }
 }

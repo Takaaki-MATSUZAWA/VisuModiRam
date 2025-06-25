@@ -91,7 +91,11 @@ impl VisuModiRam {
 
         #[cfg(feature = "persistence")]
         if let Some(storage) = cc.storage {
-            if let Some(state) = eframe::get_value(storage, eframe::APP_KEY) {
+            if let Some(mut state) = eframe::get_value::<State>(storage, eframe::APP_KEY) {
+                // Restore widgets from serialized configs
+                state.main_tab.restore_from_load();
+                // Always start on Setting tab
+                state.selected_anchor = Anchor::SettingTab;
                 slf.state = state;
             }
         }
@@ -167,7 +171,9 @@ impl VisuModiRam {
                     .add_filter("Layout file", &["ron"])
                     .pick_file()
                 {
-                    if let Ok(load_data) = self::load_layout(path) {
+                    if let Ok(mut load_data) = self::load_layout::<State>(path) {
+                        // Restore widgets from serialized configs
+                        load_data.main_tab.restore_from_load();
                         self.state = load_data;
                     } else {
                         //println!("faild load layout");
@@ -187,6 +193,8 @@ impl VisuModiRam {
                     if !path.to_str().map_or(false, |s| s.ends_with(".ron")) {
                         path_with_extension = path.with_extension("ron");
                     }
+                    // Prepare widget configs for serialization
+                    self.state.main_tab.prepare_for_save();
                     self::save_layout(path_with_extension, &self.state);
                 }
             }
@@ -244,7 +252,19 @@ impl VisuModiRam {
 impl eframe::App for VisuModiRam {
     #[cfg(feature = "persistence")]
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        // Prepare widget configurations for serialization
+        self.state.main_tab.prepare_for_save();
         eframe::set_value(storage, eframe::APP_KEY, &self.state);
+    }
+
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        // Note: on_exit doesn't have access to storage, so we rely on the save() method
+        // which is called automatically before on_exit
+    }
+
+    fn auto_save_interval(&self) -> std::time::Duration {
+        // Auto-save every 30 seconds
+        std::time::Duration::from_secs(30)
     }
 
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
