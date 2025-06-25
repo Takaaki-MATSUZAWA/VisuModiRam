@@ -208,13 +208,6 @@ impl DataViewerTab {
 
         // 基本設定
         ui.checkbox(&mut self.show_table, "Show Data Table");
-        ui.checkbox(&mut self.plot_settings.auto_range, "Auto Range");
-        ui.checkbox(&mut self.plot_settings.show_points, "Show Points");
-        
-        ui.horizontal(|ui| {
-            ui.label("Line Width:");
-            ui.add(egui::DragValue::new(&mut self.plot_settings.line_width).range(0.5..=5.0).speed(0.1));
-        });
 
         ui.separator();
 
@@ -394,16 +387,38 @@ impl DataViewerTab {
             return;
         }
 
+        // プロット制御
+        let mut reset_flag = false;
+        ui.horizontal(|ui| {
+            if ui.button("Pos Reset").clicked() {
+                reset_flag = true;
+            }
+            ui.separator();
+            ui.checkbox(&mut self.plot_settings.auto_range, "Auto Range");
+            ui.checkbox(&mut self.plot_settings.show_points, "Show Points");
+            
+            ui.horizontal(|ui| {
+                ui.label("Line Width:");
+                ui.add(egui::DragValue::new(&mut self.plot_settings.line_width).range(0.5..=5.0).speed(0.1));
+            });
+        });
+
+        ui.separator();
+
         // プロット作成
         let mut plot = Plot::new("data_viewer_plot")
             .legend(egui_plot::Legend::default())
             .allow_zoom(true)
             .allow_drag(true)
             .allow_scroll(true)
-            .height(ui.available_height() - 150.0);
+            .height(ui.available_height() - 200.0);
 
         if self.plot_settings.auto_range {
             plot = plot.auto_bounds([true, true].into());
+        }
+
+        if reset_flag {
+            plot = plot.reset();
         }
 
         plot.show(ui, |plot_ui| {

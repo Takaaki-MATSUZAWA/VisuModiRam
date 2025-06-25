@@ -453,7 +453,12 @@ impl LoggingTab {
         ui.separator();
 
         // プロット制御
+        let mut reset_flag = false;
         ui.horizontal(|ui| {
+            if ui.button("Pos Reset").clicked() {
+                reset_flag = true;
+            }
+            ui.separator();
             ui.label("Plot Variables:");
             ui.checkbox(&mut self.plot_auto_range, "Auto Range");
         });
@@ -499,18 +504,20 @@ impl LoggingTab {
         }
 
         // プロット描画
-        let plot = Plot::new("logging_plot")
+        let mut plot = Plot::new("logging_plot")
             .legend(egui_plot::Legend::default())
             .height(400.0)
             .allow_zoom(true)
             .allow_drag(true)
             .allow_scroll(true);
 
-        let plot = if self.plot_auto_range {
-            plot.auto_bounds([true, true].into())
-        } else {
-            plot
-        };
+        if self.plot_auto_range {
+            plot = plot.auto_bounds([true, true].into());
+        }
+
+        if reset_flag {
+            plot = plot.reset();
+        }
 
         plot.show(ui, |plot_ui| {
             // 各変数のラインを描画
