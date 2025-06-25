@@ -111,19 +111,7 @@ impl eframe::App for LoggingTab {
             // データ表示部分を上下に分割
             ui.horizontal(|ui| {
                 ui.set_height(ctx.available_rect().height());
-                
-                // 左側: データテーブル
-                ui.allocate_ui_with_layout(
-                    [ctx.available_rect().width() * 0.4, ctx.available_rect().height()].into(),
-                    egui::Layout::top_down(egui::Align::Min),
-                    |ui| {
-                        self.data_display_ui(ui);
-                    }
-                );
-                
-                ui.separator();
-                
-                // 右側: プロット表示
+
                 ui.allocate_ui_with_layout(
                     [ctx.available_rect().width() * 0.6, ctx.available_rect().height()].into(),
                     egui::Layout::top_down(egui::Align::Min),
@@ -336,116 +324,6 @@ impl LoggingTab {
                 self.selected_variables.clear();
             }
         });
-    }
-
-    fn data_display_ui(&mut self, ui: &mut egui::Ui) {
-        ui.heading("📈 Data Display");
-        ui.separator();
-
-        if self.selected_variables.is_empty() {
-            ui.label("Select variables to display data");
-            return;
-        }
-
-        // 表示データ数の設定
-        ui.horizontal(|ui| {
-            ui.label("Display last:");
-            ui.add(
-                egui::DragValue::new(&mut self.display_data_count)
-                    .suffix(" samples")
-                    .clamp_range(10..=10000)
-                    .speed(10.0)
-            );
-        });
-
-        ui.separator();
-
-        // 実際のデータを取得
-        let mut data_map = std::collections::HashMap::new();
-        let max_rows = self.display_data_count.min(1000);
-        
-        for var_name in &self.selected_variables {
-            let log_data = self.probe_if.get_log_vec(var_name, Some(max_rows as u64 * self.settings.sample_rate_ms));
-            data_map.insert(var_name.clone(), log_data);
-        }
-
-        // 最大行数を決定（すべての変数の最小値）
-        let actual_rows = if data_map.is_empty() {
-            0
-        } else {
-            data_map.values().map(|data| data.len()).min().unwrap_or(0).min(max_rows)
-        };
-
-        // データテーブル表示
-        TableBuilder::new(ui)
-            .striped(true)
-            .resizable(true)
-            .vscroll(true)
-            .column(Column::initial(100.0).resizable(true)) // Timestamp列
-            .columns(
-                Column::initial(100.0).resizable(true), 
-                self.selected_variables.len()
-            )
-            .header(20.0, |mut header| {
-                header.col(|ui| {
-                    ui.strong("Timestamp");
-                });
-                for var_name in &self.selected_variables {
-                    header.col(|ui| {
-                        ui.strong(var_name);
-                    });
-                }
-            })
-            .body(|mut body| {
-                for i in 0..actual_rows {
-                    body.row(18.0, |mut row| {
-                        // タイムスタンプ列
-                        row.col(|ui| {
-                            if let Some(first_var) = self.selected_variables.first() {
-                                if let Some(data) = data_map.get(first_var) {
-                                    if i < data.len() {
-                                        ui.label(format!("{:.3}s", data[i][0]));
-                                    } else {
-                                        ui.label("--");
-                                    }
-                                } else {
-                                    ui.label("--");
-                                }
-                            } else {
-                                ui.label("--");
-                            }
-                        });
-
-                        // 各変数の値列
-                        for var_name in &self.selected_variables {
-                            row.col(|ui| {
-                                if let Some(data) = data_map.get(var_name) {
-                                    if i < data.len() {
-                                        ui.label(format!("{:.3}", data[i][1]));
-                                    } else {
-                                        ui.label("--");
-                                    }
-                                } else {
-                                    ui.label("--");
-                                }
-                            });
-                        }
-                    });
-                }
-                
-                if actual_rows == 0 {
-                    body.row(18.0, |mut row| {
-                        row.col(|ui| {
-                            ui.label("No data available");
-                        });
-                        for _ in &self.selected_variables {
-                            row.col(|ui| {
-                                ui.label("--");
-                            });
-                        }
-                    });
-                }
-            });
     }
 
     fn plot_display_ui(&mut self, ui: &mut egui::Ui) {
