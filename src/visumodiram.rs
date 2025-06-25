@@ -163,7 +163,9 @@ impl VisuModiRam {
                 }
 
                 // change one shot - probe settings transfer
-                if selected_anchor == Anchor::MainMonitorTab || selected_anchor == Anchor::LoggingTab {
+                if selected_anchor == Anchor::MainMonitorTab
+                    || selected_anchor == Anchor::LoggingTab
+                {
                     switch_to_main_flag = true;
                 }
             }
@@ -233,7 +235,9 @@ impl VisuModiRam {
             .open(&mut true)
             .resizable(false)
             .show(ctx, |ui| {
-                ui.label("Are you sure you want to RESET ALL layouts, elf file paths and watchlists?");
+                ui.label(
+                    "Are you sure you want to RESET ALL layouts, elf file paths and watchlists?",
+                );
                 ui.horizontal(|ui| {
                     if ui.button("Cancel").clicked() {
                         self.open_dialog = Dialog::None;

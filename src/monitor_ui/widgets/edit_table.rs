@@ -2,7 +2,7 @@ use eframe::egui;
 use egui::ahash::HashMap;
 use egui_extras::{Column, TableBuilder};
 
-use super::{MCUinterface, WidgetConfig, EditTableConfig};
+use super::{EditTableConfig, MCUinterface, WidgetConfig};
 use crate::debugging_tools::*;
 
 #[derive(Default, Clone)]
@@ -90,12 +90,10 @@ impl super::WidgetApp for EditTable {
 
     fn from_config(config: WidgetConfig) -> Box<dyn super::WidgetApp> {
         match config {
-            WidgetConfig::EditTable(config) => {
-                Box::new(EditTable {
-                    mcu: MCUinterface::default(),
-                    edit_texts: config.edit_texts,
-                })
-            }
+            WidgetConfig::EditTable(config) => Box::new(EditTable {
+                mcu: MCUinterface::default(),
+                edit_texts: config.edit_texts,
+            }),
             _ => Box::new(EditTable::default()),
         }
     }

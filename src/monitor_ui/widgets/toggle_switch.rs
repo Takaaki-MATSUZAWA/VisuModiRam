@@ -184,12 +184,10 @@ impl super::WidgetApp for ToggleSwitch {
 
     fn from_config(config: super::WidgetConfig) -> Box<dyn super::WidgetApp> {
         match config {
-            super::WidgetConfig::ToggleSwitch(config) => {
-                Box::new(ToggleSwitch {
-                    mcu: super::MCUinterface::default(),
-                    toggle_sw: config.toggle_sw,
-                })
-            }
+            super::WidgetConfig::ToggleSwitch(config) => Box::new(ToggleSwitch {
+                mcu: super::MCUinterface::default(),
+                toggle_sw: config.toggle_sw,
+            }),
             _ => Box::new(ToggleSwitch::default()),
         }
     }

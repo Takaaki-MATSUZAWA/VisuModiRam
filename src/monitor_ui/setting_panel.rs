@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use crate::debugging_tools::*;
 use probe_rs::probe::{list::Lister, DebugProbeInfo};
 use regex::Regex;
-use tracing::{info, debug, error};
+use tracing::{debug, error, info};
 
 #[derive(Default)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -42,12 +42,12 @@ struct TargetMCUInfo {
     candidate_list: Vec<String>,
 }
 
-use probe_rs::config::{Registry, MemoryRegion};
+use probe_rs::config::{MemoryRegion, Registry};
 
 impl TargetMCUInfo {
     pub fn check_id(&mut self, id: &str) {
         let registry = Registry::from_builtin_families();
-        
+
         if let Ok(target) = registry.get_target_by_name(id) {
             self.id = target.name.clone();
             self.id_not_found = false;
@@ -59,7 +59,7 @@ impl TargetMCUInfo {
             }
         } else {
             self.candidate_list.clear();
-            
+
             // idを検索し、結果が空の場合は後ろから1文字ずつ削って再検索
             let mut search_id = id.to_string();
             while !search_id.is_empty() {
@@ -435,34 +435,57 @@ impl SettingTab {
                     if !self.symbol_search.target_mcu.candidate_list.is_empty() {
                         ui.label(RichText::new("Candidate Chips:").strong());
                         ui.separator();
-                        
+
                         // 候補チップのリストを表示（最大10個まで）
                         let max_display = 10;
-                        let display_count = self.symbol_search.target_mcu.candidate_list.len().min(max_display);
-                        
-                        for candidate in &self.symbol_search.target_mcu.candidate_list[..display_count] {
+                        let display_count = self
+                            .symbol_search
+                            .target_mcu
+                            .candidate_list
+                            .len()
+                            .min(max_display);
+
+                        for candidate in
+                            &self.symbol_search.target_mcu.candidate_list[..display_count]
+                        {
                             ui.label(format!("• {}", candidate));
                         }
-                        
+
                         if self.symbol_search.target_mcu.candidate_list.len() > max_display {
-                            ui.label(format!("... and {} more", 
-                                self.symbol_search.target_mcu.candidate_list.len() - max_display));
+                            ui.label(format!(
+                                "... and {} more",
+                                self.symbol_search.target_mcu.candidate_list.len() - max_display
+                            ));
                         }
-                        
+
                         if self.symbol_search.target_mcu.id_not_found && display_count > 0 {
                             ui.separator();
-                            ui.label(RichText::new("💡 Try typing a more specific chip name").small().color(Color32::GRAY));
+                            ui.label(
+                                RichText::new("💡 Try typing a more specific chip name")
+                                    .small()
+                                    .color(Color32::GRAY),
+                            );
                         }
                     } else if !self.symbol_search.target_mcu.id.is_empty() {
                         if self.symbol_search.target_mcu.id_not_found {
-                            ui.label(RichText::new("❌ No matching chips found").color(Color32::RED));
-                            ui.label(RichText::new("Try a different chip name or check spelling").small().color(Color32::GRAY));
+                            ui.label(
+                                RichText::new("❌ No matching chips found").color(Color32::RED),
+                            );
+                            ui.label(
+                                RichText::new("Try a different chip name or check spelling")
+                                    .small()
+                                    .color(Color32::GRAY),
+                            );
                         } else {
                             ui.label(RichText::new("✅ Valid chip name").color(Color32::GREEN));
                         }
                     } else {
                         ui.label("Enter a chip name (e.g., STM32G474, STM32F4)");
-                        ui.label(RichText::new("Candidates will appear here as you type").small().color(Color32::GRAY));
+                        ui.label(
+                            RichText::new("Candidates will appear here as you type")
+                                .small()
+                                .color(Color32::GRAY),
+                        );
                     }
                 })
                 .changed()

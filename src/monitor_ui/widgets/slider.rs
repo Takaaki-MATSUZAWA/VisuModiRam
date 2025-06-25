@@ -229,12 +229,10 @@ impl super::WidgetApp for Sliders {
 
     fn from_config(config: super::WidgetConfig) -> Box<dyn super::WidgetApp> {
         match config {
-            super::WidgetConfig::Slider(config) => {
-                Box::new(Sliders {
-                    mcu: super::MCUinterface::default(),
-                    sliders: config.sliders,
-                })
-            }
+            super::WidgetConfig::Slider(config) => Box::new(Sliders {
+                mcu: super::MCUinterface::default(),
+                sliders: config.sliders,
+            }),
             _ => Box::new(Sliders::default()),
         }
     }

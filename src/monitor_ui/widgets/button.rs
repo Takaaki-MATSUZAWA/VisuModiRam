@@ -156,13 +156,11 @@ impl super::WidgetApp for PushButton {
 
     fn from_config(config: super::WidgetConfig) -> Box<dyn super::WidgetApp> {
         match config {
-            super::WidgetConfig::PushButton(config) => {
-                Box::new(PushButton {
-                    mcu: super::MCUinterface::default(),
-                    buttons: config.buttons,
-                    btn_cnt: config.btn_cnt,
-                })
-            }
+            super::WidgetConfig::PushButton(config) => Box::new(PushButton {
+                mcu: super::MCUinterface::default(),
+                buttons: config.buttons,
+                btn_cnt: config.btn_cnt,
+            }),
             _ => Box::new(PushButton::default()),
         }
     }

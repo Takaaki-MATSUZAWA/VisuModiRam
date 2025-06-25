@@ -67,11 +67,9 @@ impl super::WidgetApp for TableView {
 
     fn from_config(config: super::WidgetConfig) -> Box<dyn super::WidgetApp> {
         match config {
-            super::WidgetConfig::TableView(_config) => {
-                Box::new(TableView {
-                    mcu: super::MCUinterface::default(),
-                })
-            }
+            super::WidgetConfig::TableView(_config) => Box::new(TableView {
+                mcu: super::MCUinterface::default(),
+            }),
             _ => Box::new(TableView::default()),
         }
     }

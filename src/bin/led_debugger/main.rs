@@ -33,7 +33,12 @@ fn main() -> Result<(), eframe::Error> {
         eframe::run_native(
             "LED Controller",
             options,
-            Box::new(move |cc| Ok(Box::new(LedMonitor::new_with_ronfile(cc, ron_file_path.clone())))),
+            Box::new(move |cc| {
+                Ok(Box::new(LedMonitor::new_with_ronfile(
+                    cc,
+                    ron_file_path.clone(),
+                )))
+            }),
         )
     }
 }

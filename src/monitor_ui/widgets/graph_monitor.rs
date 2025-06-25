@@ -1,7 +1,7 @@
 use eframe::egui;
 use egui_plot::{Corner, Legend, Line, LineStyle, Plot};
 
-use super::{MCUinterface, WidgetConfig, GraphMonitorConfig};
+use super::{GraphMonitorConfig, MCUinterface, WidgetConfig};
 use crate::debugging_tools::*;
 
 #[derive(Clone)]
@@ -104,13 +104,11 @@ impl super::WidgetApp for GraphMonitor {
 
     fn from_config(config: WidgetConfig) -> Box<dyn super::WidgetApp> {
         match config {
-            WidgetConfig::GraphMonitor(config) => {
-                Box::new(GraphMonitor {
-                    mcu: MCUinterface::default(),
-                    time_window: config.time_window,
-                    entire_duration_flag: config.entire_duration_flag,
-                })
-            }
+            WidgetConfig::GraphMonitor(config) => Box::new(GraphMonitor {
+                mcu: MCUinterface::default(),
+                time_window: config.time_window,
+                entire_duration_flag: config.entire_duration_flag,
+            }),
             _ => Box::new(GraphMonitor::default()),
         }
     }

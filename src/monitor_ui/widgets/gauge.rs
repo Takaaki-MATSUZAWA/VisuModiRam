@@ -183,14 +183,12 @@ impl super::WidgetApp for Gauges {
 
     fn from_config(config: super::WidgetConfig) -> Box<dyn super::WidgetApp> {
         match config {
-            super::WidgetConfig::Gauge(config) => {
-                Box::new(Gauges {
-                    mcu: super::MCUinterface::default(),
-                    sliders: config.sliders,
-                    layout: config.layout_settings,
-                    common_size: config.common_size,
-                })
-            }
+            super::WidgetConfig::Gauge(config) => Box::new(Gauges {
+                mcu: super::MCUinterface::default(),
+                sliders: config.sliders,
+                layout: config.layout_settings,
+                common_size: config.common_size,
+            }),
             _ => Box::new(Gauges::default()),
         }
     }

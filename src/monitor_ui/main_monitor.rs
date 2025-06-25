@@ -332,18 +332,22 @@ impl MainMonitorTab {
     // Serialization support methods
     pub fn prepare_for_save(&mut self) {
         // Convert widgets to configs before saving
-        self.widget_configs = self.widgets.iter()
+        self.widget_configs = self
+            .widgets
+            .iter()
             .map(|widget| WidgetWindowConfig::from_widget_window(widget))
             .collect();
     }
 
     pub fn restore_from_load(&mut self) {
         // Restore widgets from configs after loading
-        self.widgets = self.widget_configs.iter()
+        self.widgets = self
+            .widget_configs
+            .iter()
             .cloned()
             .map(|config| Box::new(config.to_widget_window()))
             .collect();
-        
+
         // Update window_cnt to avoid ID conflicts
         if let Some(max_id) = self.widgets.iter().map(|w| w.id).max() {
             self.window_cnt = max_id;

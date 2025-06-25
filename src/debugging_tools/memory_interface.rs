@@ -16,13 +16,13 @@ impl MCUMemory {
             "signed char" | "char" => match value_str.parse::<i8>() {
                 Ok(val) => core.write_word_8(symbol.address, val as u8),
                 Err(_) => Err(probe_rs::Error::Other(
-                    "Parse error for signed char".to_string()
+                    "Parse error for signed char".to_string(),
                 )),
             },
             "unsigned char" | "bool" | "_Bool" => match value_str.parse::<u8>() {
                 Ok(val) => core.write_word_8(symbol.address, val),
                 Err(_) => Err(probe_rs::Error::Other(
-                    "Parse error for unsigned char".to_string()
+                    "Parse error for unsigned char".to_string(),
                 )),
             },
             "short int" => match value_str.parse::<i16>() {
@@ -30,9 +30,7 @@ impl MCUMemory {
                     let block = val.to_le_bytes();
                     core.write_8(symbol.address, &block).map_err(|e| e.into())
                 }
-                Err(_) => Err(probe_rs::Error::Other(
-                    "Parse error for short".to_string()
-                )),
+                Err(_) => Err(probe_rs::Error::Other("Parse error for short".to_string())),
             },
             "short unsigned int" => match value_str.parse::<u16>() {
                 Ok(val) => {
@@ -40,20 +38,20 @@ impl MCUMemory {
                     core.write_8(symbol.address, &block).map_err(|e| e.into())
                 }
                 Err(_) => Err(probe_rs::Error::Other(
-                    "Parse error for unsigned short".to_string()
+                    "Parse error for unsigned short".to_string(),
                 )),
             },
             "int" | "long int" => match value_str.parse::<i32>() {
                 Ok(val) => core.write_word_32(symbol.address, val as u32),
                 Err(_) => Err(probe_rs::Error::Other(
-                    "Parse error for int/long".to_string()
+                    "Parse error for int/long".to_string(),
                 )),
             },
             "unsigned int" | "long unsigned int" => match value_str.parse::<u32>() {
                 Ok(val) => core.write_word_32(symbol.address, val),
                 Err(_) => Err(probe_rs::Error::Other(
-                    "Parse error for unsigned int/long"
-                .to_string())),
+                    "Parse error for unsigned int/long".to_string(),
+                )),
             },
             "long long int" => match value_str.parse::<i64>() {
                 Ok(val) => {
@@ -66,8 +64,8 @@ impl MCUMemory {
                         .map_err(|e| e.into())
                 }
                 Err(_) => Err(probe_rs::Error::Other(
-                    "Parse error for long long"
-                .to_string())),
+                    "Parse error for long long".to_string(),
+                )),
             },
             "long long unsigned int" => match value_str.parse::<u64>() {
                 Ok(val) => {
@@ -80,20 +78,18 @@ impl MCUMemory {
                         .map_err(|e| e.into())
                 }
                 Err(_) => Err(probe_rs::Error::Other(
-                    "Parse error for unsigned long long"
-                .to_string())),
+                    "Parse error for unsigned long long".to_string(),
+                )),
             },
             "float" => match value_str.parse::<f32>() {
                 Ok(val) => core.write_word_32(symbol.address, val.to_bits()),
-                Err(_) => Err(probe_rs::Error::Other(
-                    "Parse error for float"
-                .to_string())),
+                Err(_) => Err(probe_rs::Error::Other("Parse error for float".to_string())),
             },
             "double" | "long double" => match value_str.parse::<f64>() {
                 Ok(val) => core.write_word_64(symbol.address, val.to_bits()),
                 Err(_) => Err(probe_rs::Error::Other(
-                    "Parse error for double/long double"
-                .to_string())),
+                    "Parse error for double/long double".to_string(),
+                )),
             },
             _ => Err(probe_rs::Error::Other("Unsupported type".to_string())),
         }

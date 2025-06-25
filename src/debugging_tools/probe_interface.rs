@@ -4,13 +4,13 @@ use probe_rs::{
     probe::{list::Lister, DebugProbeError},
     Permissions,
 };
-use tracing::{error, info, warn, debug};
-use sensorlog_ram::{LogfileConfig, Measurement, quota, SensorlogRam, logfile_config::SaveFormat};
+use sensorlog_ram::{logfile_config::SaveFormat, quota, LogfileConfig, Measurement, SensorlogRam};
 use shellexpand;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use stopwatch::Stopwatch;
+use tracing::{debug, error, info, warn};
 
 use super::memory_interface::MCUMemory;
 // ----------------------------------------------------------------------------
@@ -138,7 +138,7 @@ impl ProbeInterface {
                     std::io::Error::new(std::io::ErrorKind::Other, "No matching probe found")
                 })
                 .unwrap();
-            
+
             let probe = probe_info.open().unwrap();
 
             // Attach to a chip.
@@ -277,7 +277,10 @@ impl ProbeInterface {
     }
 
     pub fn get_measurement_count(&mut self, sensor_name: &str) -> usize {
-        self.log_service.lock().unwrap().get_measurement_count(sensor_name)
+        self.log_service
+            .lock()
+            .unwrap()
+            .get_measurement_count(sensor_name)
     }
 
     pub fn force_save_to_disk(&mut self) -> Result<(), std::io::Error> {
@@ -289,7 +292,10 @@ impl ProbeInterface {
     }
 
     pub fn clear_sensor_ram(&mut self, sensor_name: &str) {
-        self.log_service.lock().unwrap().clear_sensor_ram(sensor_name);
+        self.log_service
+            .lock()
+            .unwrap()
+            .clear_sensor_ram(sensor_name);
     }
 
     pub fn get_flash_progress(&mut self) -> Progress {
@@ -317,7 +323,7 @@ impl ProbeInterface {
 
         std::thread::spawn(move || {
             info!("Flash thread started");
-            
+
             let probe_info = probes
                 .into_iter()
                 .find(|probe| probe.serial_number == Some(setting.probe_sn.clone()))
@@ -325,16 +331,19 @@ impl ProbeInterface {
                     error!("No matching probe found with SN: {}", setting.probe_sn);
                     probe_rs::Error::Other("No matching probe found".to_string())
                 })?;
-            
-            info!("Found matching probe: {:?}", probe_info.serial_number);
-            let probe = probe_info.open()
-                .map_err(|e| {
-                    error!("Failed to open probe: {:?}", e);
-                    probe_rs::Error::Probe(e)
-                })?;
 
-            info!("Probe opened successfully, attaching to target: {}", setting.target_mcu);
-            let mut session = probe.attach(setting.target_mcu.clone(), Permissions::default())
+            info!("Found matching probe: {:?}", probe_info.serial_number);
+            let probe = probe_info.open().map_err(|e| {
+                error!("Failed to open probe: {:?}", e);
+                probe_rs::Error::Probe(e)
+            })?;
+
+            info!(
+                "Probe opened successfully, attaching to target: {}",
+                setting.target_mcu
+            );
+            let mut session = probe
+                .attach(setting.target_mcu.clone(), Permissions::default())
                 .map_err(|e| {
                     error!("Failed to attach to target {}: {:?}", setting.target_mcu, e);
                     e
@@ -374,7 +383,7 @@ impl ProbeInterface {
                 }
             }
 
-            // Reset target 
+            // Reset target
             info!("Resetting target after flash");
             match session.core(0).and_then(|mut core| {
                 info!("Resetting target...");
@@ -387,11 +396,14 @@ impl ProbeInterface {
                     info!("Target reset and start successful");
                 }
                 Err(e) => {
-                    warn!("Target reset failed: {:?} (firmware flash was successful)", e);
+                    warn!(
+                        "Target reset failed: {:?} (firmware flash was successful)",
+                        e
+                    );
                     // Don't fail the entire operation for reset issues
                 }
             }
-            
+
             info!("Flash operation completed");
             Ok(())
         })

@@ -206,7 +206,9 @@ impl LedMonitor {
             .open(&mut true)
             .resizable(false)
             .show(ctx, |ui| {
-                ui.label("Are you sure you want to RESET ALL layouts, elf file paths and watchlists?");
+                ui.label(
+                    "Are you sure you want to RESET ALL layouts, elf file paths and watchlists?",
+                );
                 ui.horizontal(|ui| {
                     if ui.button("Cancel").clicked() {
                         self.open_dialog = Dialog::None;

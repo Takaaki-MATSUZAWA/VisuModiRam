@@ -173,63 +173,66 @@ impl ELFParser {
     /// ELFファイルのパスから推測されるチップ名を取得
     pub fn guess_chip_name(&self) -> Option<String> {
         use tracing::{debug, info};
-        
+
         let elf_path = std::path::Path::new(&self.elf_path);
-        
+
         // ELFファイルのディレクトリを取得
         let parent_dir = elf_path.parent()?;
         let project_root = parent_dir.parent()?;
-        
-        info!("Attempting to auto-detect chip name from ELF path: {}", self.elf_path);
+
+        info!(
+            "Attempting to auto-detect chip name from ELF path: {}",
+            self.elf_path
+        );
         debug!("ELF file: {:?}", elf_path);
         debug!("Parent dir: {:?}", parent_dir);
         debug!("Project root: {:?}", project_root);
-        
+
         // 1. リンカスクリプトファイルから推測
         if let Some(chip_from_linker) = self.guess_from_linker_script(project_root) {
             debug!("Found chip name from linker script: {}", chip_from_linker);
             return Some(chip_from_linker);
         }
-        
+
         // 2. プロジェクト名から推測
         if let Some(chip_from_project) = self.guess_from_project_name(project_root) {
             debug!("Found chip name from project name: {}", chip_from_project);
             return Some(chip_from_project);
         }
-        
+
         // 3. CMakeファイルから推測
         if let Some(chip_from_cmake) = self.guess_from_cmake_files(project_root) {
             debug!("Found chip name from CMake files: {}", chip_from_cmake);
             return Some(chip_from_cmake);
         }
-        
+
         debug!("Could not guess chip name from project structure");
         None
     }
-    
+
     fn guess_from_linker_script(&self, project_root: &std::path::Path) -> Option<String> {
         use std::fs;
         use tracing::debug;
-        
+
         debug!("Searching for linker scripts in: {:?}", project_root);
-        
+
         // リンカスクリプトファイル(.ld)を探す
         if let Ok(entries) = fs::read_dir(project_root) {
             for entry in entries.flatten() {
                 if let Some(file_name) = entry.file_name().to_str() {
                     debug!("Checking file: {}", file_name);
-                    
+
                     if file_name.ends_with(".ld") && file_name.contains("STM32") {
                         debug!("Found STM32 linker script: {}", file_name);
-                        
+
                         // STM32G474RETx_FLASH.ld -> STM32G474RETx
                         let chip_name = file_name
                             .replace("_FLASH.ld", "")
                             .replace("_RAM.ld", "")
                             .replace(".ld", "");
-                        
+
                         debug!("Extracted chip name: {}", chip_name);
-                        
+
                         if chip_name.starts_with("STM32") {
                             return Some(chip_name);
                         }
@@ -241,13 +244,13 @@ impl ELFParser {
         }
         None
     }
-    
+
     fn guess_from_project_name(&self, project_root: &std::path::Path) -> Option<String> {
         use tracing::debug;
-        
+
         if let Some(project_name) = project_root.file_name()?.to_str() {
             debug!("Checking project name for chip clues: {}", project_name);
-            
+
             // G474_test_firmware -> G474
             if project_name.contains("G474") {
                 debug!("Found G474 in project name");
@@ -273,22 +276,22 @@ impl ELFParser {
                 debug!("Found H743 in project name");
                 return Some("STM32H743VITx".to_string());
             }
-            
+
             debug!("No known chip pattern found in project name");
         }
         None
     }
-    
+
     fn guess_from_cmake_files(&self, project_root: &std::path::Path) -> Option<String> {
         use std::fs;
-        
+
         // CMakeLists.txtやヘッダファイルからSTM32チップ名を探す
         let files_to_check = vec![
             "CMakeLists.txt",
             "Core/Inc/stm32g4xx_hal_conf.h",
             "Core/Inc/main.h",
         ];
-        
+
         for file_name in files_to_check {
             let file_path = project_root.join(file_name);
             if let Ok(content) = fs::read_to_string(&file_path) {
@@ -400,14 +403,14 @@ pub fn get_variable_info(var: &Variable, hash: &FileHash) -> Vec<VariableInfo> {
                 vars_vec.push(info);
             } else {
                 for member in typeinfo.clone().ty(hash).unwrap().members() {
-                        vars_vec.extend(get_member(
+                    vars_vec.extend(get_member(
                         member,
                         hash,
                         var.name().unwrap().to_string(),
                         var.address().unwrap(),
-                        )); 
-                    }
+                    ));
                 }
+            }
         }
 
         // メンバー変を再帰的に探す
@@ -615,70 +618,13 @@ pub fn get_base_type(type_offset: TypeOffset, hash: &FileHash) -> Option<String>
 
 // ----------------------------------------------------------------------
 
-/// probe-rs 0.29.0 APIを使用してサポートされているチップ一覧を取得
-fn get_supported_chips() -> Vec<String> {
-    debug!("Attempting to get supported chips from probe-rs");
-    
-    // probe-rs 0.29.0では直接的なAPI探索が必要
-    // 一時的に既知のチップパターンをベースにしつつ、実際のチップ検証を行う
-    vec![
-        // STM32G4シリーズ
-        "STM32G474RETx".to_string(), "STM32G474RBTx".to_string(), "STM32G474QETx".to_string(),
-        "STM32G474VETx".to_string(), "STM32G474CBTx".to_string(), "STM32G474CCTx".to_string(),
-        "STM32G431RBTx".to_string(), "STM32G441RBTx".to_string(),
-        // STM32F1シリーズ  
-        "STM32F103RETx".to_string(), "STM32F103RBTx".to_string(), "STM32F103RCTx".to_string(),
-        "STM32F103ZETx".to_string(), "STM32F103VETx".to_string(),
-        // STM32F4シリーズ
-        "STM32F401RETx".to_string(), "STM32F401RBTx".to_string(), "STM32F401RCTx".to_string(),
-        "STM32F411RETx".to_string(), "STM32F411RCTx".to_string(), "STM32F411VETx".to_string(),
-        "STM32F446RETx".to_string(), "STM32F446RCTx".to_string(), "STM32F446VETx".to_string(),
-        // STM32H7シリーズ
-        "STM32H743VITx".to_string(), "STM32H743ZITx".to_string(), "STM32H743XIHx".to_string(),
-        // STM32L4シリーズ
-        "STM32L432KCUx".to_string(), "STM32L452RETx".to_string(), "STM32L476RGTx".to_string(),
-        // STM32F0シリーズ
-        "STM32F072RBTx".to_string(), "STM32F030RCTx".to_string(), "STM32F091RCTx".to_string(),
-    ]
-}
-
-/// チップ名の類似度を計算（Levenshtein距離ベース）
-fn calculate_chip_similarity(input: &str, candidate: &str) -> f64 {
-    let input_lower = input.to_lowercase();
-    let candidate_lower = candidate.to_lowercase();
-    
-    // 完全一致
-    if input_lower == candidate_lower {
-        return 1.0;
-    }
-    
-    // プレフィックス一致（STM32G474XX と STM32G474RETx）
-    if let Some(input_base) = extract_chip_base(&input_lower) {
-        if let Some(candidate_base) = extract_chip_base(&candidate_lower) {
-            if input_base == candidate_base {
-                return 0.9; // 高い類似度
-            }
-        }
-    }
-    
-    // Levenshtein距離による類似度
-    let distance = levenshtein_distance(&input_lower, &candidate_lower);
-    let max_len = input_lower.len().max(candidate_lower.len());
-    
-    if max_len == 0 {
-        1.0
-    } else {
-        1.0 - (distance as f64 / max_len as f64)
-    }
-}
-
 /// チップ名からベース部分を抽出（STM32G474XX -> stm32g474）
 fn extract_chip_base(chip_name: &str) -> Option<String> {
     let lower = chip_name.to_lowercase();
-    
+
     if let Some(stm32_start) = lower.find("stm32") {
         let after_stm32 = &lower[stm32_start + 5..]; // "stm32".len() = 5
-        
+
         // 数字と文字の部分を抽出（例：g474）
         let mut base = String::new();
         for ch in after_stm32.chars() {
@@ -690,78 +636,26 @@ fn extract_chip_base(chip_name: &str) -> Option<String> {
                 }
             }
         }
-        
+
         if !base.is_empty() {
             return Some(format!("stm32{}", base));
         }
     }
-    
+
     None
 }
 
-/// Levenshtein距離を計算
-fn levenshtein_distance(s1: &str, s2: &str) -> usize {
-    let len1 = s1.len();
-    let len2 = s2.len();
-    let mut matrix = vec![vec![0; len2 + 1]; len1 + 1];
-
-    for i in 0..=len1 {
-        matrix[i][0] = i;
-    }
-    for j in 0..=len2 {
-        matrix[0][j] = j;
-    }
-
-    let s1_chars: Vec<char> = s1.chars().collect();
-    let s2_chars: Vec<char> = s2.chars().collect();
-
-    for i in 1..=len1 {
-        for j in 1..=len2 {
-            let cost = if s1_chars[i - 1] == s2_chars[j - 1] { 0 } else { 1 };
-            matrix[i][j] = (matrix[i - 1][j] + 1)
-                .min(matrix[i][j - 1] + 1)
-                .min(matrix[i - 1][j - 1] + cost);
-        }
-    }
-
-    matrix[len1][len2]
-}
-
-/// Generic STM32 chip names を probe-rs でサポートされている具体的なチップ名に変換
-fn convert_generic_chip_name(generic_name: &str) -> String {
-    debug!("Converting generic chip name: {}", generic_name);
-    
-    let supported_chips = get_supported_chips();
-    let mut best_match = generic_name.to_string();
-    let mut best_similarity = 0.0;
-    
-    for candidate in &supported_chips {
-        let similarity = calculate_chip_similarity(generic_name, candidate);
-        debug!("Similarity between '{}' and '{}': {:.3}", generic_name, candidate, similarity);
-        
-        if similarity > best_similarity {
-            best_similarity = similarity;
-            best_match = candidate.clone();
-        }
-    }
-    
-    if best_similarity > 0.7 { // 70%以上の類似度で採用
-        info!("Converted '{}' to '{}' (similarity: {:.3})", generic_name, best_match, best_similarity);
-        best_match
-    } else {
-        warn!("No good match found for '{}' (best: {} with {:.3})", generic_name, best_match, best_similarity);
-        generic_name.to_string()
-    }
-}
-
 pub fn search_target_mcu_name(elf_file_path: &PathBuf) -> Option<String> {
-    use tracing::{info, debug};
-    
+    use tracing::{debug, info};
+
     let project_name = elf_file_path.file_stem()?.to_str()?.to_string();
     let mut project_dir = elf_file_path.parent();
     let mut return_mcu_id_tmp = String::new();
 
-    info!("Searching for target MCU name from ELF: {:?}", elf_file_path);
+    info!(
+        "Searching for target MCU name from ELF: {:?}",
+        elf_file_path
+    );
 
     // 最初に.iocファイルから正確なチップ名を取得（最も正確）
     while let Some(path) = project_dir {
@@ -779,7 +673,10 @@ pub fn search_target_mcu_name(elf_file_path: &PathBuf) -> Option<String> {
         for line in content.lines() {
             if line.starts_with("ProjectManager.DeviceId=") {
                 return_mcu_id_tmp = line["ProjectManager.DeviceId=".len()..].to_string();
-                info!("Found exact chip name from .ioc file: {}", return_mcu_id_tmp);
+                info!(
+                    "Found exact chip name from .ioc file: {}",
+                    return_mcu_id_tmp
+                );
                 return Some(return_mcu_id_tmp);
             }
         }
@@ -805,11 +702,7 @@ pub fn search_target_mcu_name(elf_file_path: &PathBuf) -> Option<String> {
                 .find(|name| name.starts_with("STM32"))
         })
     {
-        debug!("Found chip name from startup file: {}", mcu_id);
-        // Generic chip names (STM32G474XX) を具体的なチップ名に変換
-        let converted_chip = convert_generic_chip_name(&mcu_id);
-        info!("Converted generic chip name {} to {}", mcu_id, converted_chip);
-        return Some(converted_chip);
+        return Some(mcu_id.clone());
     }
 
     // elf_file_pathと同じディレクトリのCMakeFiles/rules.ninjaファイルがある場合の処理
@@ -838,7 +731,10 @@ pub fn search_target_mcu_name(elf_file_path: &PathBuf) -> Option<String> {
     // 新しいguess_chip_name関数も使用してみる
     if let Ok(parser) = ELFParser::launch(elf_file_path) {
         if let Some(guessed_chip) = parser.guess_chip_name() {
-            info!("Found chip name from new detection method: {}", guessed_chip);
+            info!(
+                "Found chip name from new detection method: {}",
+                guessed_chip
+            );
             return Some(guessed_chip);
         }
     }

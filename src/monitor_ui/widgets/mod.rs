@@ -119,13 +119,8 @@ impl WidgetWindowConfig {
             WidgetConfig::PushButton(_) => PushButton::from_config(self.widget_config),
         };
 
-        let mut window = WidgetWindow::new(
-            self.id,
-            self.name,
-            self.title_bar,
-            self.lock,
-            widget_app,
-        );
+        let mut window =
+            WidgetWindow::new(self.id, self.name, self.title_bar, self.lock, widget_app);
         window.rect = self.rect;
         window.state.selected_anchor = self.selected_anchor;
         window.state.select_tab = self.select_tab;
@@ -179,7 +174,9 @@ pub trait WidgetApp {
 
     // Configuration serialization methods
     fn to_config(&self) -> WidgetConfig;
-    fn from_config(config: WidgetConfig) -> Box<dyn WidgetApp> where Self: Sized;
+    fn from_config(config: WidgetConfig) -> Box<dyn WidgetApp>
+    where
+        Self: Sized;
 }
 // ----------------------------------------------------------------------------
 
@@ -233,7 +230,6 @@ impl Default for State {
         }
     }
 }
-
 
 impl State {
     pub fn new(wiget_ui: Box<dyn WidgetApp>) -> Self {
