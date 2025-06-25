@@ -5,7 +5,7 @@ use probe_rs::{
     Permissions,
 };
 use tracing::{error, info, warn, debug};
-use sensorlog::{logfile_config::LogfileConfig, measure::Measurement, quota, Sensorlog};
+use sensorlog_ram::{LogfileConfig, Measurement, quota, SensorlogRam, logfile_config::SaveFormat};
 use shellexpand;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -64,22 +64,27 @@ pub struct ProbeInterface {
     #[cfg_attr(feature = "serde", serde(skip))]
     watching_flag: Arc<Mutex<bool>>,
     #[cfg_attr(feature = "serde", serde(skip))]
-    log_service: Arc<Mutex<Sensorlog>>,
+    log_service: Arc<Mutex<SensorlogRam>>,
     #[cfg_attr(feature = "serde", serde(skip))]
     write_que: Arc<Mutex<BTreeMap<VariableInfo, String>>>,
     #[cfg_attr(feature = "serde", serde(skip))]
     log_timer: Arc<Mutex<Stopwatch>>,
 }
 
-fn log_service_default() -> Sensorlog {
+fn log_service_default() -> SensorlogRam {
     let mut logfile_config = LogfileConfig::new();
-    logfile_config.set_default_storage_quota(quota::StorageQuota::Unlimited);
+    // RAMベースの高性能設定
+    logfile_config.set_default_storage_quota(quota::StorageQuota::MaxMeasurements(100000)); // 100K測定値まで
+    logfile_config.set_auto_save_interval(Some(30000)); // 30秒ごとに自動保存
+    logfile_config.set_max_ram_usage(200 * 1024 * 1024); // 200MB RAM制限
+    logfile_config.set_save_format(SaveFormat::Binary); // 高速バイナリ形式
+    logfile_config.set_compression(false); // 圧縮なし（速度優先）
 
     let datadir = PathBuf::from(format!("{}", shellexpand::tilde("~/.EguiMonitorLog")));
     if !datadir.exists() {
         std::fs::create_dir_all(&datadir).expect("faild create logfile dir");
     }
-    let service = Sensorlog::new(&datadir, logfile_config).expect("faild create logfile");
+    let service = SensorlogRam::new(&datadir, logfile_config).expect("faild create logfile");
     service
 }
 
@@ -200,8 +205,9 @@ impl ProbeInterface {
         let now_time = self.log_timer.lock().unwrap().elapsed_ms();
         let last_time = now_time - 500;
 
+        // 時間範囲を修正: time_start（過去）からtime_end（現在）
         let measurements =
-            self.load_data(index, Some(now_time as u64), Some(last_time as u64), None);
+            self.load_data(index, Some(last_time as u64), Some(now_time as u64), None);
 
         let res = measurements.last();
         if let Some(val) = res {
@@ -228,7 +234,8 @@ impl ProbeInterface {
             Some(last_time as u64)
         };
 
-        let measurements = self.load_data(index, Some(now_time as u64), last_time, None);
+        // 時間範囲を修正: time_start（過去）からtime_end（現在）
+        let measurements = self.load_data(index, last_time, Some(now_time as u64), None);
 
         let mut vec = Vec::new();
         for measurement in measurements {
@@ -243,13 +250,13 @@ impl ProbeInterface {
         &mut self,
         index: &str,
         time_start: Option<u64>,
-        time_limit: Option<u64>,
+        time_end: Option<u64>,
         limit: Option<u64>,
     ) -> Vec<Measurement> {
         self.log_service
             .lock()
             .unwrap()
-            .fetch_measurements(index, time_start, time_limit, limit)
+            .fetch_measurements(index, time_start, time_end, limit)
             .expect("log service load error")
     }
 
@@ -258,6 +265,31 @@ impl ProbeInterface {
             .lock()
             .unwrap()
             .insert(symbol.clone(), data.to_string());
+    }
+
+    // sensorlog-ram特有の機能
+    pub fn get_memory_usage(&mut self) -> usize {
+        self.log_service.lock().unwrap().get_memory_usage()
+    }
+
+    pub fn get_sensor_names(&mut self) -> Vec<String> {
+        self.log_service.lock().unwrap().get_sensor_names()
+    }
+
+    pub fn get_measurement_count(&mut self, sensor_name: &str) -> usize {
+        self.log_service.lock().unwrap().get_measurement_count(sensor_name)
+    }
+
+    pub fn force_save_to_disk(&mut self) -> Result<(), std::io::Error> {
+        self.log_service
+            .lock()
+            .unwrap()
+            .save_to_disk()
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+    }
+
+    pub fn clear_sensor_ram(&mut self, sensor_name: &str) {
+        self.log_service.lock().unwrap().clear_sensor_ram(sensor_name);
     }
 
     pub fn get_flash_progress(&mut self) -> Progress {

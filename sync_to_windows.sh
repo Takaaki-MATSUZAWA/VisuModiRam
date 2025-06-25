@@ -25,6 +25,7 @@ cp CLAUDE.md "$WINDOWS_DIR/"
 echo "📂 Copying src directory..."
 cp -r src "$WINDOWS_DIR/"
 cp -r assets "$WINDOWS_DIR/"
+cp -r sensorlog-ram "$WINDOWS_DIR/"
 
 # テストファームウェアは除外（サイズが大きいため）
 echo "⚠️  Skipping G474_test_firmware (excluded from sync)"

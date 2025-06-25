@@ -29,7 +29,7 @@ egui = { version = "0.30.0", features = [
 egui_extras = { version = "0.30.0", features = ["all_loaders"] }
 egui_plot = { version = "0.30.0" }
 shellexpand = "2.1.2"
-sensorlog = "1.0.0"
+sensorlog-ram = { path = "./sensorlog-ram" }
 rfd = "0.12.1"
 use = "0.0.1-pre.0"
 erased-serde = "0.4.1"
