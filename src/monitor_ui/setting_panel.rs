@@ -58,7 +58,6 @@ impl TargetMCUInfo {
                 self.ram.calc_percent();
             }
         } else {
-            self.id_not_found = true;
             self.candidate_list.clear();
             
             // idを検索し、結果が空の場合は後ろから1文字ずつ削って再検索
@@ -82,10 +81,8 @@ impl TargetMCUInfo {
                 search_id.pop();
             }
 
-            // 候補が見つからなかった場合
-            if self.candidate_list.is_empty() {
-                self.id_not_found = true;
-            }
+            // 候補の有無でid_not_foundを設定
+            self.id_not_found = self.candidate_list.is_empty();
         }
     }
 
@@ -435,11 +432,37 @@ impl SettingTab {
             if ui
                 .text_edit_singleline(&mut self.symbol_search.target_mcu.id)
                 .on_hover_ui(|ui| {
-                    if self.symbol_search.target_mcu.id_not_found {
-                        ui.label("Candidate List");
-                        for candidate in &self.symbol_search.target_mcu.candidate_list {
-                            ui.label(format!("{}", candidate));
+                    if !self.symbol_search.target_mcu.candidate_list.is_empty() {
+                        ui.label(RichText::new("Candidate Chips:").strong());
+                        ui.separator();
+                        
+                        // 候補チップのリストを表示（最大10個まで）
+                        let max_display = 10;
+                        let display_count = self.symbol_search.target_mcu.candidate_list.len().min(max_display);
+                        
+                        for candidate in &self.symbol_search.target_mcu.candidate_list[..display_count] {
+                            ui.label(format!("• {}", candidate));
                         }
+                        
+                        if self.symbol_search.target_mcu.candidate_list.len() > max_display {
+                            ui.label(format!("... and {} more", 
+                                self.symbol_search.target_mcu.candidate_list.len() - max_display));
+                        }
+                        
+                        if self.symbol_search.target_mcu.id_not_found && display_count > 0 {
+                            ui.separator();
+                            ui.label(RichText::new("💡 Try typing a more specific chip name").small().color(Color32::GRAY));
+                        }
+                    } else if !self.symbol_search.target_mcu.id.is_empty() {
+                        if self.symbol_search.target_mcu.id_not_found {
+                            ui.label(RichText::new("❌ No matching chips found").color(Color32::RED));
+                            ui.label(RichText::new("Try a different chip name or check spelling").small().color(Color32::GRAY));
+                        } else {
+                            ui.label(RichText::new("✅ Valid chip name").color(Color32::GREEN));
+                        }
+                    } else {
+                        ui.label("Enter a chip name (e.g., STM32G474, STM32F4)");
+                        ui.label(RichText::new("Candidates will appear here as you type").small().color(Color32::GRAY));
                     }
                 })
                 .changed()
