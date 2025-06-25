@@ -4,6 +4,7 @@ use probe_rs::{
     probe::{list::Lister, DebugProbeError},
     Permissions,
 };
+use tracing::{error, info, warn, debug};
 use sensorlog::{logfile_config::LogfileConfig, measure::Measurement, quota, Sensorlog};
 use shellexpand;
 use std::collections::BTreeMap;
@@ -47,6 +48,8 @@ impl Default for FlashProgressState {
 pub struct Progress {
     pub state: FlashProgressState,
     pub progress: f64,
+    pub total_bytes: u64,
+    pub now_bytes: u64,
 }
 
 // ----------------------------------------------------------------------------
@@ -163,7 +166,7 @@ impl ProbeInterface {
                         Ok(_) => {}
                         Err(_e) => {
                             #[cfg(debug_assertions)]
-                            println!("測定値の保存中にエラーが発生しました: {}", _e);
+                            error!("測定値の保存中にエラーが発生しました: {}", _e);
                         }
                     }
                 }
@@ -261,68 +264,103 @@ impl ProbeInterface {
         self.flash_progress.lock().unwrap().clone()
     }
 
-    //pub fn flash(&mut self, elf_path: PathBuf) -> Result<(), probe_rs::Error> {
     pub fn flash(
         &mut self,
         elf_path: PathBuf,
     ) -> std::thread::JoinHandle<Result<(), probe_rs::Error>> {
-        use flashing::ProgressEvent::*;
-
         let lister = Lister::new();
         let probes = lister.list_all();
         let setting = self.setting.clone();
 
         if self.now_watching() {
+            error!("Cannot flash while watching is active");
             let err = Err(probe_rs::Error::Probe(DebugProbeError::Attached));
             return std::thread::spawn(move || err);
         }
 
+        info!("Starting firmware flash to {:?}", elf_path);
         self.flash_progress.lock().unwrap().state = FlashProgressState::Erasing;
         let progress_clone = Arc::clone(&self.flash_progress);
+        let progress_clone2 = Arc::clone(&self.flash_progress);
 
         std::thread::spawn(move || {
+            info!("Flash thread started");
+            
             let probe_info = probes
                 .into_iter()
                 .find(|probe| probe.serial_number == Some(setting.probe_sn.clone()))
                 .ok_or_else(|| {
-                    std::io::Error::new(std::io::ErrorKind::Other, "No matching probe found")
-                })
-                .unwrap();
+                    error!("No matching probe found with SN: {}", setting.probe_sn);
+                    probe_rs::Error::Other("No matching probe found".to_string())
+                })?;
             
-            let probe = probe_info.open().unwrap();
+            info!("Found matching probe: {:?}", probe_info.serial_number);
+            let probe = probe_info.open()
+                .map_err(|e| {
+                    error!("Failed to open probe: {:?}", e);
+                    probe_rs::Error::Probe(e)
+                })?;
 
-            // Attach to a chip.
-            let mut session = probe.attach(setting.target_mcu.clone(), Permissions::default())?;
+            info!("Probe opened successfully, attaching to target: {}", setting.target_mcu);
+            let mut session = probe.attach(setting.target_mcu.clone(), Permissions::default())
+                .map_err(|e| {
+                    error!("Failed to attach to target {}: {:?}", setting.target_mcu, e);
+                    e
+                })?;
 
-            let total_page_size = Arc::new(Mutex::new(0u32));
-            let total_sector_size = Arc::new(Mutex::new(0u64));
+            info!("Successfully attached to target");
 
-            // Temporarily disabled FlashProgress for probe-rs 0.29.0 compatibility
-            // TODO: Update FlashProgress API for probe-rs 0.29.0
-            let progress = FlashProgress::new(move |_event| {
-                // Flash progress tracking temporarily disabled
-                // Will be restored with correct probe-rs 0.29.0 API
+            // Set up progress tracking with probe-rs 0.29.0 API (simplified)
+            let progress = FlashProgress::new(move |event| {
+                debug!("Flash progress event: {:?}", event);
+                let mut progress = progress_clone.lock().unwrap();
+                // Note: probe-rs 0.29.0 ProgressEvent structure changed
+                // For now, we'll just track basic progress without detailed events
+                progress.state = FlashProgressState::Programing;
             });
 
             let mut options = DownloadOptions::default();
             options.progress = Some(progress);
 
-            let _res = probe_rs::flashing::download_file_with_options(
+            info!("Starting firmware download");
+            let flash_result = probe_rs::flashing::download_file_with_options(
                 &mut session,
-                elf_path,
+                elf_path.clone(),
                 FormatKind::Elf,
                 options,
             );
 
-            #[cfg(debug_assertions)]
-            println!("flash {:?}", _res);
-
-            // Reset target according to CLI options
-            {
-                let mut core = session.core(0)?;
-
-                core.reset()?;
+            match flash_result {
+                Ok(_) => {
+                    info!("Firmware flash completed successfully");
+                    progress_clone2.lock().unwrap().state = FlashProgressState::Finished;
+                }
+                Err(e) => {
+                    error!("Firmware flash failed: {:?}", e);
+                    progress_clone2.lock().unwrap().state = FlashProgressState::Failed;
+                    return Err(probe_rs::Error::Other(format!("Flash failed: {}", e)));
+                }
             }
+
+            // Reset target 
+            info!("Resetting target after flash");
+            match session.core(0).and_then(|mut core| {
+                info!("Resetting target...");
+                core.reset()?;
+                info!("Starting target execution...");
+                core.run()?;
+                Ok(())
+            }) {
+                Ok(_) => {
+                    info!("Target reset and start successful");
+                }
+                Err(e) => {
+                    warn!("Target reset failed: {:?} (firmware flash was successful)", e);
+                    // Don't fail the entire operation for reset issues
+                }
+            }
+            
+            info!("Flash operation completed");
             Ok(())
         })
     }

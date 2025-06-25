@@ -10,6 +10,7 @@ use std::path::PathBuf;
 use crate::debugging_tools::*;
 use probe_rs::probe::{list::Lister, DebugProbeSelector, Probe, DebugProbeInfo};
 use regex::Regex;
+use tracing::{info, debug, error};
 
 #[derive(Default)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -296,14 +297,20 @@ impl SettingTab {
 
                     if let Ok(elf_parser) = ELFParser::launch(&PathBuf::from(&elf_path)) {
                         self.symbol_search.variable_list = Vec::new();
-                        #[cfg(debug_assertions)]
-                        println!("scaner launched");
+                        debug!("ELF scanner launched successfully");
+
+                        // チップ名の自動推測
+                        if let Some(guessed_chip) = elf_parser.guess_chip_name() {
+                            info!("Auto-detected chip: {}", guessed_chip);
+                            self.symbol_search.target_mcu.check_id(&guessed_chip);
+                        } else {
+                            debug!("Could not auto-detect chip from ELF project structure");
+                        }
 
                         self.symbol_search.elf_parser = Some(elf_parser);
                         if let Some(elf_parser) = &mut self.symbol_search.elf_parser {
                             elf_parser.scan_variables_none_blocking_start();
-                            #[cfg(debug_assertions)]
-                            println!("scan start");
+                            debug!("Variable scanning started");
                         }
 
                         let path_parts: Vec<&str> = elf_path.split("\\").collect();
@@ -317,8 +324,7 @@ impl SettingTab {
                             .trim_end_matches(".elf")
                             .to_string();
                     } else {
-                        #[cfg(debug_assertions)]
-                        println!("failed file load");
+                        error!("Failed to load ELF file: {}", elf_path);
                     }
                 }
             }

@@ -88,14 +88,14 @@ impl LedMonitor {
     pub fn new_with_ronfile(cc: &eframe::CreationContext<'_>, ron_file: PathBuf) -> Self {
         let mut self_ctx = Self::new(cc);
 
-        println!("new_with_ronfile -- {:?}", ron_file);
+        tracing::info!("Loading layout from file: {:?}", ron_file);
 
         let res = self::load_layout(ron_file);
         if let Ok(load_data) = res {
-            println!("desirialize succsess");
+            tracing::info!("Layout deserialization successful");
             self_ctx.state = load_data;
         } else {
-            println!("desirialize faild {:?}", res.err());
+            tracing::error!("Layout deserialization failed: {:?}", res.err());
         }
         self_ctx
     }

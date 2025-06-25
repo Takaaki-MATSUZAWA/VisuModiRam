@@ -150,7 +150,7 @@ impl LayoutTest {
                     if let Ok(load_data) = self::load_layout(path) {
                         self.state = load_data;
                     } else {
-                        println!("faild load layout");
+                        tracing::error!("Failed to load layout");
                     }
                 }
             }
@@ -161,7 +161,7 @@ impl LayoutTest {
                     .add_filter("Layout file", &["ron"])
                     .save_file()
                 {
-                    println!("{:?}", path);
+                    tracing::info!("Saving layout to: {:?}", path);
                     let mut path_with_extension = path.clone();
                     if !path.to_str().map_or(false, |s| s.ends_with(".ron")) {
                         path_with_extension = path.with_extension("ron");
@@ -237,9 +237,9 @@ impl eframe::App for LayoutTest {
 
 pub fn save_layout<T: serde::Serialize>(save_file: PathBuf, value: &T) {
     let serialized = ron::ser::to_string(&value).expect("Failed to serialize state");
-    println!("serialized!!!");
+    tracing::debug!("Layout serialized successfully");
     std::fs::write(save_file, serialized).expect("Failed to write to file");
-    println!("saved!!!");
+    tracing::info!("Layout saved successfully");
 }
 
 pub fn load_layout<T: serde::de::DeserializeOwned>(load_file: PathBuf) -> Result<T, String> {

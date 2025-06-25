@@ -18,6 +18,8 @@ persistence = ["eframe/persistence", "egui/persistence", "serde"]
 eframe = { version = "0.24.1" }
 probe-rs = "0.29.0"
 env_logger = "0.10.2"
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter", "fmt"] }
 regex = {version = "1.10.6"}
 serde = { version = "1.0.190", optional = true, features = ["derive"] }
 egui = { version = "0.24.1", features = [
