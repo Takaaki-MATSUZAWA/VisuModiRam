@@ -6,6 +6,7 @@ use crate::monitor_ui::*;
 enum Anchor {
     SettingTab,
     MainMonitorTab,
+    LoggingTab,
 }
 
 impl std::fmt::Display for Anchor {
@@ -51,6 +52,7 @@ enum Dialog {
 pub struct State {
     setting_tab: SettingTab,
     main_tab: MainMonitorTab,
+    logging_tab: LoggingTab,
 
     selected_anchor: Anchor,
 }
@@ -116,6 +118,11 @@ impl VisuModiRam {
                 Anchor::MainMonitorTab,
                 &mut self.state.main_tab as &mut dyn eframe::App,
             ),
+            (
+                "🚀 High-Speed Logging",
+                Anchor::LoggingTab,
+                &mut self.state.logging_tab as &mut dyn eframe::App,
+            ),
         ];
 
         vec.into_iter()
@@ -148,8 +155,8 @@ impl VisuModiRam {
                         .open_url(egui::OpenUrl::same_tab(format!("#{anchor}")));
                 }
 
-                // change one shot
-                if selected_anchor == Anchor::MainMonitorTab {
+                // change one shot - probe settings transfer
+                if selected_anchor == Anchor::MainMonitorTab || selected_anchor == Anchor::LoggingTab {
                     switch_to_main_flag = true;
                 }
             }
@@ -158,7 +165,13 @@ impl VisuModiRam {
 
         if switch_to_main_flag {
             let setting = self.state.setting_tab.get_watch_setting().clone();
-            self.state.main_tab.probe_if.set_probe(setting).unwrap();
+            if selected_anchor == Anchor::MainMonitorTab {
+                self.state.main_tab.probe_if.set_probe(setting).unwrap();
+            } else if selected_anchor == Anchor::LoggingTab {
+                let mut probe_if = crate::debugging_tools::ProbeInterface::default();
+                probe_if.set_probe(setting).unwrap();
+                self.state.logging_tab.set_probe(probe_if).unwrap();
+            }
         }
 
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
