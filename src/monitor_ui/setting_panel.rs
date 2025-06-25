@@ -8,7 +8,7 @@ use rfd::FileDialog;
 use std::path::PathBuf;
 
 use crate::debugging_tools::*;
-use probe_rs::probe::{list::Lister, DebugProbeSelector, Probe, DebugProbeInfo};
+use probe_rs::probe::{list::Lister, DebugProbeInfo};
 use regex::Regex;
 use tracing::{info, debug, error};
 
@@ -42,19 +42,16 @@ struct TargetMCUInfo {
     candidate_list: Vec<String>,
 }
 
-// Temporarily commented out probe-rs config functions for 0.29.0 compatibility
-// use probe_rs::config::{get_target_by_name, search_chips, MemoryRegion};
+use probe_rs::config::{Registry, MemoryRegion};
 
 impl TargetMCUInfo {
     pub fn check_id(&mut self, id: &str) {
-        // Temporarily disabled for probe-rs 0.29.0 compatibility
-        self.id = id.to_string();
-        self.id_not_found = false;
-        /*
-        if let Ok(chip) = get_target_by_name(id) {
-            self.id = chip.name.clone();
+        let registry = Registry::from_builtin_families();
+        
+        if let Ok(target) = registry.get_target_by_name(id) {
+            self.id = target.name.clone();
             self.id_not_found = false;
-            if let Some((ram_size, nvm_size)) = Self::get_memory_sizes(&chip.name) {
+            if let Some((ram_size, nvm_size)) = Self::get_memory_sizes(&target) {
                 self.rom.size = nvm_size as f64;
                 self.ram.size = ram_size as f64;
                 self.rom.calc_percent();
@@ -62,20 +59,25 @@ impl TargetMCUInfo {
             }
         } else {
             self.id_not_found = true;
+            self.candidate_list.clear();
+            
             // idを検索し、結果が空の場合は後ろから1文字ずつ削って再検索
             let mut search_id = id.to_string();
-            while search_id.len() > 0 {
-                if let Ok(chips) = search_chips(&search_id) {
-                    if !chips.is_empty() {
-                        self.candidate_list = chips
-                            .into_iter()
-                            .map(|chip| {
-                                let (ram, rom) = Self::get_memory_sizes(&chip).unwrap_or((0, 0));
+            while !search_id.is_empty() {
+                let chips = registry.search_chips(&search_id);
+                if !chips.is_empty() {
+                    self.candidate_list = chips
+                        .into_iter()
+                        .map(|chip| {
+                            if let Ok(target) = registry.get_target_by_name(&chip) {
+                                let (ram, rom) = Self::get_memory_sizes(&target).unwrap_or((0, 0));
                                 format!("{:<10} (RAM: {:>3}KB, ROM: {:>3}KB)", chip, ram, rom)
-                            })
-                            .collect();
-                        break;
-                    }
+                            } else {
+                                chip
+                            }
+                        })
+                        .collect();
+                    break;
                 }
                 search_id.pop();
             }
@@ -85,45 +87,36 @@ impl TargetMCUInfo {
                 self.id_not_found = true;
             }
         }
-        */
     }
 
-    fn get_memory_sizes(chip_name: &str) -> Option<(u32, u32)> {
-        // Temporarily disabled for probe-rs 0.29.0 compatibility
-        None
-        /*
-        if let Ok(chip) = get_target_by_name(chip_name) {
-            let ram_size = chip
-                .memory_map
-                .iter()
-                .filter_map(|region| {
-                    if let MemoryRegion::Ram(ram) = region {
-                        Some(ram.range.end - ram.range.start)
-                    } else {
-                        None
-                    }
-                })
-                .map(|size| size as f64) // 各要素をf64に変換
-                .sum::<f64>();
+    fn get_memory_sizes(target: &probe_rs::config::Target) -> Option<(u32, u32)> {
+        let ram_size = target
+            .memory_map
+            .iter()
+            .filter_map(|region| {
+                if let MemoryRegion::Ram(ram) = region {
+                    Some(ram.range.end - ram.range.start)
+                } else {
+                    None
+                }
+            })
+            .map(|size| size as f64) // 各要素をf64に変換
+            .sum::<f64>();
 
-            let nvm_size = chip
-                .memory_map
-                .iter()
-                .filter_map(|region| {
-                    if let MemoryRegion::Nvm(nvm) = region {
-                        Some(nvm.range.end - nvm.range.start)
-                    } else {
-                        None
-                    }
-                })
-                .map(|size| size as f64) // 各要素をf64に変換
-                .sum::<f64>();
+        let nvm_size = target
+            .memory_map
+            .iter()
+            .filter_map(|region| {
+                if let MemoryRegion::Nvm(nvm) = region {
+                    Some(nvm.range.end - nvm.range.start)
+                } else {
+                    None
+                }
+            })
+            .map(|size| size as f64) // 各要素をf64に変換
+            .sum::<f64>();
 
-            Some(((ram_size / 1024.0) as u32, (nvm_size / 1024.0) as u32))
-        } else {
-            None
-        }
-        */
+        Some(((ram_size / 1024.0) as u32, (nvm_size / 1024.0) as u32))
     }
 }
 

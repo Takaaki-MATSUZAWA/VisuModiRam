@@ -28,7 +28,7 @@ src/
 
 ## 主要技術スタック
 
-- **GUI**: eframe/egui (0.24.1) - immediate mode GUI
+- **GUI**: eframe/egui (0.30.0) - immediate mode GUI
 - **プローブ通信**: probe-rs (0.29.0) - ST-Link/J-Link対応
 - **ELF解析**: ddbug_parser - DWARF情報から変数情報抽出
 - **データ保存**: sensorlog (1.0.0) - 変数データのロギング
@@ -49,14 +49,15 @@ rustup override set nightly
 
 ## 開発タスクと課題
 
-### probe-rs 0.29.0アップデート完了 (一部機能制限あり)
+### probe-rs 0.29.0アップデート完了 ✅
 - probe-rs を 0.21.1 から 0.29.0 に更新済み
 - Rust nightly版も最新に更新
-- **一時的制限**: `probe_rs::config` 関連機能を無効化
-  - ターゲットMCU自動検出機能が一時的に無効
-  - メモリサイズ取得機能が一時的に無効
-  - 手動でターゲットMCU名を指定する必要あり
-- これらの機能は新しいprobe-rs APIに合わせて今後修正が必要
+- **全機能復活完了**: `probe_rs::config` 関連機能を新APIで実装
+  - ターゲットMCU自動検出機能: `Registry::get_target_by_name()` 使用
+  - メモリサイズ取得機能: `MemoryRegion::Ram/Nvm` から正確な計算
+  - チップ検索・候補表示機能: `Registry::search_chips()` 使用
+  - 段階的検索機能: 文字列を削りながら候補を探索
+- 全てのconfig関連機能が正常動作確認済み
 
 ### 依存関係の更新が必要
 - 主要依存関係は最新版に更新済み
@@ -84,6 +85,11 @@ rustup override set nightly
 - `ProbeInterface`がprobe-rs APIをラップ
 - `WatchSetting`で監視対象変数を管理
 - フラッシュ書き込み進捗の追跡
+
+### ターゲット設定とconfig機能
+- `Registry::from_builtin_families()`で組み込みターゲット群を初期化
+- `TargetMCUInfo`でチップ検証、メモリサイズ計算、候補検索を管理
+- 不正確なチップ名入力時の段階的検索とRAM/ROM容量表示
 
 ### ELF解析とDWARF処理
 - `elf_parser.rs`でELFファイルから変数情報抽出
