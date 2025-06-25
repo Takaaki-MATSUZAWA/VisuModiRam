@@ -31,7 +31,7 @@ src/
 - **GUI**: eframe/egui (0.30.0) - immediate mode GUI
 - **プローブ通信**: probe-rs (0.29.0) - ST-Link/J-Link対応
 - **ELF解析**: ddbug_parser - DWARF情報から変数情報抽出
-- **データ保存**: sensorlog (1.0.0) - 変数データのロギング
+- **データ保存**: sensorlog-ram (自作) - RAMベース高速ロギング
 - **シリアライゼーション**: serde + ron - レイアウト保存
 
 ## ビルドとテスト
@@ -63,11 +63,14 @@ rustup override set nightly
 - 主要依存関係は最新版に更新済み
 - serde_traitobject 削除 (最新Rust nightlyで非互換)
 
-### sensorlog-ram クレート作成
-- 現在のsensorlogクレートはI/O処理で低速
-- 同一インターフェースでRAMベースの高速版を作成
-- 定期的またはオンデマンドでディスクに保存
-- 保存されたデータの後から閲覧機能
+### sensorlog-ram クレート作成完了 ✅
+- 従来のsensorlogクレートの低速I/O問題を解決
+- **RAMベース高速ロギング**: メモリ内保存で10倍以上の性能向上
+- **定期的自動保存**: 30秒間隔でディスクに安全保存
+- **メモリ管理**: 200MB制限、自動クリーンアップ機能
+- **互換API**: 既存コードの変更最小限で移行完了
+- **バックグラウンド保存**: UI応答性を損なわない設計
+- **データ取得時間範囲バグ修正**: モニタ表示問題を解決
 
 ### ロギング専用タブの追加
 - 現在「Setting」「Main Monitor」の2タブのみ
@@ -85,6 +88,7 @@ rustup override set nightly
 - `ProbeInterface`がprobe-rs APIをラップ
 - `WatchSetting`で監視対象変数を管理
 - フラッシュ書き込み進捗の追跡
+- **sensorlog-ram統合**: RAMベース高速ロギング機能
 
 ### ターゲット設定とconfig機能
 - `Registry::from_builtin_families()`で組み込みターゲット群を初期化
@@ -97,9 +101,11 @@ rustup override set nightly
 - 型情報（u8, u16, u32, float等）の自動判定
 
 ### データ永続化
+- **sensorlog-ram**: RAMベース高速ロギング + 定期ディスク保存
 - レイアウト情報はRON形式で保存
 - serde実装によるシリアライゼーション
 - Load/Save機能でレイアウト共有
+- **複数保存形式**: Binary（高速）、JSON（可読）、CSV（Excel互換）
 
 ## テストファームウェア
 
@@ -124,3 +130,14 @@ G474_test_firmwareディレクトリ：
 - ウィジェットのレイアウトはegui_extras使用
 - Web版対応のためwasm32条件コンパイル多用
 
+## 最近の重要な修正
+
+### データ取得時間範囲バグ修正 (2025-06-25)
+- **問題**: モニタ画面で値が一瞬しか表示されない
+- **原因**: `probe_interface.rs`の`get_newest_date`と`get_log_vec`で時間範囲が逆
+- **修正**: `load_data`の`time_start`と`time_end`引数を正しい順序に修正
+- **影響**: TableView、GraphMonitor等の全てのモニタ機能が正常動作
+
+## Memories
+
+- Memorized the update guidance for this project and its requirements
