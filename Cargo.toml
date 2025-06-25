@@ -15,20 +15,19 @@ default = ["persistence"]
 persistence = ["eframe/persistence", "egui/persistence", "serde"]
 
 [dependencies]
-eframe = { version = "0.24.1" }
+eframe = { version = "0.30.0" }
 probe-rs = "0.29.0"
 env_logger = "0.10.2"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter", "fmt"] }
 regex = {version = "1.10.6"}
 serde = { version = "1.0.190", optional = true, features = ["derive"] }
-egui = { version = "0.24.1", features = [
+egui = { version = "0.30.0", features = [
   "callstack",
-  "extra_debug_asserts",
   "log",
 ] }
-egui_extras = { version = "0.24.1", features = ["all_loaders"] }
-egui_plot = { version = "0.24.1" }
+egui_extras = { version = "0.30.0", features = ["all_loaders"] }
+egui_plot = { version = "0.30.0" }
 shellexpand = "2.1.2"
 sensorlog = "1.0.0"
 rfd = "0.12.1"

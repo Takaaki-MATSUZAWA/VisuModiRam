@@ -61,7 +61,7 @@ impl eframe::App for TemplateApp {
                     ui.add_space(16.0);
                 }
 
-                egui::widgets::global_dark_light_mode_buttons(ui);
+                egui::widgets::global_theme_preference_buttons(ui);
             });
         });
 
@@ -112,7 +112,7 @@ fn led_ui(ui: &mut egui::Ui, on: bool, on_color: Color32) -> egui::Response {
     let desired_size = ui.spacing().interact_size.y * egui::vec2(1.0, 1.0);
     let (rect, response) = ui.allocate_exact_size(desired_size, egui::Sense::click());
 
-    response.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Label, on, ""));
+    response.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Label, true, on, ""));
 
     if ui.is_rect_visible(rect) {
         /*

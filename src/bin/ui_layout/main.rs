@@ -17,6 +17,6 @@ fn main() -> Result<(), eframe::Error> {
     eframe::run_native(
         "VisuModiRam",
         options,
-        Box::new(|cc| Box::new(LayoutTest::new(cc))),
+        Box::new(|cc| Ok(Box::new(LayoutTest::new(cc)))),
     )
 }

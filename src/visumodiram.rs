@@ -73,7 +73,7 @@ impl VisuModiRam {
 
         fonts.font_data.insert(
             "Inter".to_owned(),
-            egui::FontData::from_static(include_bytes!("../assets/Inter-Regular.otf")),
+            egui::FontData::from_static(include_bytes!("../assets/Inter-Regular.otf")).into(),
         );
         fonts
             .families
