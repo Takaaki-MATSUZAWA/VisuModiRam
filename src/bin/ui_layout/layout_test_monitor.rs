@@ -52,7 +52,7 @@ pub struct LayoutTest {
     open_dialog: bool,
 }
 
-use egui_modal::Modal;
+// use egui_modal::Modal;  // Temporarily disabled
 use rfd::FileDialog;
 use std::path::PathBuf;
 
@@ -178,33 +178,21 @@ impl LayoutTest {
     }
 
     fn reset_dialog_ui(&mut self, ctx: &egui::Context, cmd: &mut Command) {
-        let modal = Modal::new(ctx, "reset_dialog");
-
-        // What goes inside the modal
-        modal.show(|ui| {
-            // these helper functions help set the ui based on the modal's
-            // set style, but they are not required and you can put whatever
-            // ui you want inside [`.show()`]
-            modal.title(ui, "Warning!");
-            modal.frame(ui, |ui| {
-                modal.body(
-                    ui,
-                    "Are you sure you want to RESET ALL layouts, elf file paths and watchlists?",
-                );
+        egui::Window::new("Warning!")
+            .open(&mut true)
+            .resizable(false)
+            .show(ctx, |ui| {
+                ui.label("Are you sure you want to RESET ALL layouts, elf file paths and watchlists?");
+                ui.horizontal(|ui| {
+                    if ui.button("Cancel").clicked() {
+                        self.open_dialog = false;
+                    }
+                    if ui.button("All Reset").clicked() {
+                        *cmd = Command::ResetEverything;
+                        self.open_dialog = false;
+                    }
+                });
             });
-            modal.buttons(ui, |ui| {
-                if modal.button(ui, "cancel").clicked() {
-                    self.open_dialog = false;
-                };
-                if modal.button(ui, "All Reset").clicked() {
-                    *cmd = Command::ResetEverything;
-                    ui.close_menu();
-                    self.open_dialog = false;
-                };
-            });
-        });
-
-        modal.open();
     }
 
     fn run_cmd(&mut self, ctx: &egui::Context, cmd: Command) {

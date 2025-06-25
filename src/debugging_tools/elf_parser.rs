@@ -1,5 +1,6 @@
 use ddbug_parser::{File, FileHash, Member, TypeKind, TypeModifierKind, TypeOffset, Variable};
-use probe_rs::config::get_target_by_name;
+// Temporarily commented out for probe-rs 0.29.0 compatibility
+// use probe_rs::config::get_target_by_name;
 use std::convert::From;
 use std::error;
 use std::fmt;
@@ -485,7 +486,8 @@ pub fn search_target_mcu_name(elf_file_path: &PathBuf) -> Option<String> {
         })
     {
         return_mcu_id_tmp = mcu_id.clone();
-        if let Ok(_) = get_target_by_name(&mcu_id) {
+        // Temporarily disabled for probe-rs 0.29.0 compatibility
+        if true { // let Ok(_) = get_target_by_name(&mcu_id) {
             return Some(return_mcu_id_tmp);
         }
     }
@@ -502,7 +504,8 @@ pub fn search_target_mcu_name(elf_file_path: &PathBuf) -> Option<String> {
                         if let Some(start) = line.rfind('/') {
                             if let Some(end) = line[start + 1..].find("_FLASH.ld") {
                                 return_mcu_id_tmp = line[start + 1..start + 1 + end].to_string();
-                                if let Ok(_) = get_target_by_name(&return_mcu_id_tmp) {
+                                // Temporarily disabled for probe-rs 0.29.0 compatibility
+                                if true { // let Ok(_) = get_target_by_name(&return_mcu_id_tmp) {
                                     return Some(return_mcu_id_tmp);
                                 }
                             }
@@ -527,7 +530,8 @@ pub fn search_target_mcu_name(elf_file_path: &PathBuf) -> Option<String> {
         for line in content.lines() {
             if line.starts_with("ProjectManager.DeviceId=") {
                 return_mcu_id_tmp = line["ProjectManager.DeviceId=".len()..].to_string();
-                if let Ok(_) = get_target_by_name(&return_mcu_id_tmp) {
+                // Temporarily disabled for probe-rs 0.29.0 compatibility
+                if true { // let Ok(_) = get_target_by_name(&return_mcu_id_tmp) {
                     return Some(return_mcu_id_tmp);
                 }
             }

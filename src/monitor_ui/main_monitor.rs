@@ -11,6 +11,7 @@ use crate::debugging_tools::ProbeInterface;
 #[derive(Default)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct MainMonitorTab {
+    #[cfg_attr(feature = "serde", serde(skip))]
     widgets: Vec<Box<WidgetWindow>>,
     window_cnt: u32,
     #[cfg_attr(feature = "serde", serde(skip))]

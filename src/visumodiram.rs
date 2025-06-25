@@ -60,7 +60,7 @@ pub struct VisuModiRam {
     open_dialog: Dialog,
 }
 
-use egui_modal::Modal;
+// use egui_modal::Modal;  // Temporarily disabled
 use rfd::FileDialog;
 use std::path::PathBuf;
 
@@ -201,51 +201,33 @@ impl VisuModiRam {
     }
 
     fn reset_dialog_ui(&mut self, ctx: &egui::Context, cmd: &mut Command) {
-        let modal = Modal::new(ctx, "reset_dialog");
-
-        // What goes inside the modal
-        modal.show(|ui| {
-            // these helper functions help set the ui based on the modal's
-            // set style, but they are not required and you can put whatever
-            // ui you want inside [`.show()`]
-            modal.title(ui, "Warning!");
-            modal.frame(ui, |ui| {
-                modal.body(
-                    ui,
-                    "Are you sure you want to RESET ALL layouts, elf file paths and watchlists?",
-                );
+        egui::Window::new("Warning!")
+            .open(&mut true)
+            .resizable(false)
+            .show(ctx, |ui| {
+                ui.label("Are you sure you want to RESET ALL layouts, elf file paths and watchlists?");
+                ui.horizontal(|ui| {
+                    if ui.button("Cancel").clicked() {
+                        self.open_dialog = Dialog::None;
+                    }
+                    if ui.button("All Reset").clicked() {
+                        *cmd = Command::ResetEverything;
+                        self.open_dialog = Dialog::None;
+                    }
+                });
             });
-            modal.buttons(ui, |ui| {
-                if modal.button(ui, "cancel").clicked() {
-                    self.open_dialog = Dialog::None;
-                };
-                if modal.button(ui, "All Reset").clicked() {
-                    *cmd = Command::ResetEverything;
-                    ui.close_menu();
-                    self.open_dialog = Dialog::None;
-                };
-            });
-        });
-
-        modal.open();
     }
 
     fn faild_load_save_data_dialog_ui(&mut self, ctx: &egui::Context, _cmd: &mut Command) {
-        let modal = Modal::new(ctx, "reset_dialog");
-
-        modal.show(|ui| {
-            modal.title(ui, "Error!");
-            modal.frame(ui, |ui| {
-                modal.body(ui, "Failed to load layout save data.");
-            });
-            modal.buttons(ui, |ui| {
-                if modal.button(ui, "Accept").clicked() {
+        egui::Window::new("Error!")
+            .open(&mut true)
+            .resizable(false)
+            .show(ctx, |ui| {
+                ui.label("Failed to load layout save data.");
+                if ui.button("Accept").clicked() {
                     self.open_dialog = Dialog::None;
-                };
+                }
             });
-        });
-
-        modal.open();
     }
 
     fn run_cmd(&mut self, ctx: &egui::Context, cmd: Command) {

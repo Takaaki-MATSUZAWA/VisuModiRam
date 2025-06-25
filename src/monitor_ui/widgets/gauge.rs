@@ -1,9 +1,9 @@
 use eframe::egui;
-use egui::{ahash::HashMap, Align, Color32, Direction, Layout};
+use egui::{ahash::HashMap, Align, Direction, Layout};
 
 use super::MCUinterface;
 use crate::debugging_tools::*;
-use egui_gauge::Gauge;
+// use egui_gauge::Gauge;  // Temporarily disabled
 
 // ----------------------------------------------------------------------------
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -143,10 +143,12 @@ impl super::WidgetApp for Gauges {
                         });
                     });
                     let view_val = self.round(sldr.value);
-                    ui.add(
-                        Gauge::new(view_val, sldr.min..=sldr.max, sldr.size, Color32::RED)
-                            .text(symbol.name.clone()),
-                    );
+                    // Temporarily disabled due to egui version conflicts
+                    ui.label(format!("Gauge: {} = {:.2}", symbol.name, view_val));
+                    // ui.add(
+                    //     Gauge::new(view_val, sldr.min..=sldr.max, sldr.size, egui::Color32::RED)
+                    //         .text(symbol.name.clone()),
+                    // );
                 });
                 self.sliders.insert(symbol.name, sldr);
             }

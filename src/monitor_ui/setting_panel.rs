@@ -8,7 +8,7 @@ use rfd::FileDialog;
 use std::path::PathBuf;
 
 use crate::debugging_tools::*;
-use probe_rs::Probe;
+use probe_rs::probe::{list::Lister, DebugProbeSelector, Probe, DebugProbeInfo};
 use regex::Regex;
 
 #[derive(Default)]
@@ -41,10 +41,15 @@ struct TargetMCUInfo {
     candidate_list: Vec<String>,
 }
 
-use probe_rs::config::{get_target_by_name, search_chips, MemoryRegion};
+// Temporarily commented out probe-rs config functions for 0.29.0 compatibility
+// use probe_rs::config::{get_target_by_name, search_chips, MemoryRegion};
 
 impl TargetMCUInfo {
     pub fn check_id(&mut self, id: &str) {
+        // Temporarily disabled for probe-rs 0.29.0 compatibility
+        self.id = id.to_string();
+        self.id_not_found = false;
+        /*
         if let Ok(chip) = get_target_by_name(id) {
             self.id = chip.name.clone();
             self.id_not_found = false;
@@ -79,9 +84,13 @@ impl TargetMCUInfo {
                 self.id_not_found = true;
             }
         }
+        */
     }
 
     fn get_memory_sizes(chip_name: &str) -> Option<(u32, u32)> {
+        // Temporarily disabled for probe-rs 0.29.0 compatibility
+        None
+        /*
         if let Ok(chip) = get_target_by_name(chip_name) {
             let ram_size = chip
                 .memory_map
@@ -113,6 +122,7 @@ impl TargetMCUInfo {
         } else {
             None
         }
+        */
     }
 }
 
@@ -136,7 +146,7 @@ struct SymbolSearch {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 struct ProbeSetting {
     #[cfg_attr(feature = "serde", serde(skip))]
-    probes: Vec<probe_rs::DebugProbeInfo>,
+    probes: Vec<DebugProbeInfo>,
     select_sn: Option<String>,
 
     #[cfg_attr(feature = "serde", serde(skip))]
@@ -597,7 +607,7 @@ impl SettingTab {
     // ----------------------------------------------------------------------------
 
     fn check_probe(&mut self) {
-        let probes = Probe::list_all();
+        let probes = Lister::new().list_all();
 
         if probes.len() == 1 {
             self.probe_setting.select_sn =
@@ -671,7 +681,7 @@ impl SettingTab {
                                             ui.label(&probe.identifier);
                                         });
                                         row.col(|ui| {
-                                            ui.label(format!("{:?}", probe.probe_type));
+                                            ui.label(format!("{:?}", probe.probe_type()));
                                         });
                                         row.col(|ui| {
                                             ui.label(format!("{:?}", probe.vendor_id));

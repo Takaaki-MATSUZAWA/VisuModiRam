@@ -16,10 +16,10 @@ persistence = ["eframe/persistence", "egui/persistence", "serde"]
 
 [dependencies]
 eframe = { version = "0.24.1" }
-probe-rs = "0.21.1"
-env_logger = "0.10"
-regex = {version = "1.10.2"}
-serde = { version = "1", optional = true, features = ["derive"] }
+probe-rs = "0.29.0"
+env_logger = "0.10.2"
+regex = {version = "1.10.6"}
+serde = { version = "1.0.190", optional = true, features = ["derive"] }
 egui = { version = "0.24.1", features = [
   "callstack",
   "extra_debug_asserts",
@@ -27,17 +27,16 @@ egui = { version = "0.24.1", features = [
 ] }
 egui_extras = { version = "0.24.1", features = ["all_loaders"] }
 egui_plot = { version = "0.24.1" }
-shellexpand = "2.1"
+shellexpand = "2.1.2"
 sensorlog = "1.0.0"
 rfd = "0.12.1"
 use = "0.0.1-pre.0"
 erased-serde = "0.4.1"
-serde_traitobject = "0.2.8"
-anyhow = "1.0.79"
+anyhow = "1.0.90"
 stopwatch = "0.0.7"
-egui-modal = "0.3.1"
+# egui-modal = "0.2.3"  # Temporarily disabled due to version conflicts
 ron = "0.8.1"
-egui_gauge = "0.1.2"
+# egui_gauge = "0.1.2"  # Temporarily disabled due to version conflicts
 ddbug_parser = { git = "https://github.com/gimli-rs/ddbug.git", rev = "b7d6d6a0382f2d7e2d7db9b1ed8450a42740e2c7" }
 
 [[bin]]

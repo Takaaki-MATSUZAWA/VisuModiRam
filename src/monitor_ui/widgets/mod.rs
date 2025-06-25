@@ -40,7 +40,7 @@ impl MCUinterface {
     }
 }
 // ----------------------------------------------------------------------------
-pub trait WidgetApp: serde_traitobject::Serialize + serde_traitobject::Deserialize {
+pub trait WidgetApp {
     fn update(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame);
 
     // for MCUinterface wapper
@@ -95,28 +95,29 @@ impl Default for Anchor {
 // ----------------------------------------------------------------------------
 
 /// The state that we persist (serialize).
-/// #[derive(Default)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-//#[cfg_attr(feature = "serde", serde(default))]
 pub struct State {
-    //#[cfg_attr(feature = "serde", serde(skip))]
-    #[serde(with = "serde_traitobject")]
+    #[cfg_attr(feature = "serde", serde(skip, default = "default_widget_app"))]
     monitor_tab: Box<dyn WidgetApp>,
     select_tab: WatchSymbolSelectTab,
 
     selected_anchor: Anchor,
 }
 
-//#[cfg(disable)]
+fn default_widget_app() -> Box<dyn WidgetApp> {
+    Box::new(EditTable::default())
+}
+
 impl Default for State {
     fn default() -> Self {
         Self {
-            monitor_tab: Box::<GraphMonitor>::default(),
-            select_tab: Default::default(),
-            selected_anchor: Default::default(),
+            monitor_tab: Box::new(EditTable::default()),
+            select_tab: WatchSymbolSelectTab::default(),
+            selected_anchor: Anchor::default(),
         }
     }
 }
+
 
 impl State {
     pub fn new(wiget_ui: Box<dyn WidgetApp>) -> Self {
@@ -128,7 +129,6 @@ impl State {
     }
 }
 
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct WidgetWindow {
     pub name: String,
     pub id: u32,
@@ -140,7 +140,6 @@ pub struct WidgetWindow {
 
     state: State,
     pre_name: String,
-    #[cfg_attr(feature = "serde", serde(skip))]
     first_update_flag_inv: bool,
 }
 
