@@ -1,6 +1,6 @@
 use super::elf_parser::VariableInfo;
 use probe_rs::{
-    flashing::{self, DownloadOptions, FlashProgress, FormatKind},
+    flashing::{DownloadOptions, FlashProgress, FormatKind},
     probe::{list::Lister, DebugProbeError},
     Permissions,
 };
@@ -272,6 +272,7 @@ impl ProbeInterface {
         self.log_service.lock().unwrap().get_memory_usage()
     }
 
+    #[allow(dead_code)]
     pub fn get_sensor_names(&mut self) -> Vec<String> {
         self.log_service.lock().unwrap().get_sensor_names()
     }

@@ -65,7 +65,7 @@ impl eframe::App for MainMonitorTab {
                                     ui.add(
                                         egui::DragValue::new(&mut self.watch_duration_ms)
                                             .suffix("[ms]")
-                                            .clamp_range(1..=1000)
+                                            .range(1..=1000)
                                             .speed(10),
                                     );
                                 });
@@ -100,13 +100,6 @@ impl eframe::App for MainMonitorTab {
                 ui.with_layout(egui::Layout::top_down_justified(egui::Align::LEFT), |ui| {
                     ui.strong("Viewer");
                     // ----------------------------------------------------------------------------
-                    #[cfg(disable)]
-                    self.add_widget_botton(
-                        ui,
-                        "window",
-                        "window",
-                        Box::new(widgets::WidgetTest::default()),
-                    );
                     // ----------------------------------------------------------------------------
                     self.add_widget_botton(
                         ui,

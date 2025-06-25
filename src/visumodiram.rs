@@ -145,7 +145,7 @@ impl VisuModiRam {
     }
 
     fn bar_contents(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame, cmd: &mut Command) {
-        egui::widgets::global_dark_light_mode_switch(ui);
+        egui::widgets::global_theme_preference_switch(ui);
 
         ui.separator();
 

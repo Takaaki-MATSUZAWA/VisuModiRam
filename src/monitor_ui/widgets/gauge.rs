@@ -97,7 +97,7 @@ impl super::WidgetApp for Gauges {
                         slider.size = self.common_size;
                     }
                 }
-                ui.add(egui::DragValue::new(&mut self.common_size).clamp_range(50..=500));
+                ui.add(egui::DragValue::new(&mut self.common_size).range(50..=500));
                 ui.label("size");
                 ui.separator();
             });
@@ -131,7 +131,7 @@ impl super::WidgetApp for Gauges {
                             ui.label("size:");
                             ui.add(
                                 egui::DragValue::new(&mut size_tmp)
-                                    .clamp_range(50..=500)
+                                    .range(50..=500)
                                     .speed(1),
                             );
 

@@ -8,7 +8,7 @@ use std::result;
 use std::str;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 // ----------------------------------------------------------------------------
 
@@ -617,40 +617,11 @@ pub fn get_base_type(type_offset: TypeOffset, hash: &FileHash) -> Option<String>
 }
 
 // ----------------------------------------------------------------------
-
-/// チップ名からベース部分を抽出（STM32G474XX -> stm32g474）
-fn extract_chip_base(chip_name: &str) -> Option<String> {
-    let lower = chip_name.to_lowercase();
-
-    if let Some(stm32_start) = lower.find("stm32") {
-        let after_stm32 = &lower[stm32_start + 5..]; // "stm32".len() = 5
-
-        // 数字と文字の部分を抽出（例：g474）
-        let mut base = String::new();
-        for ch in after_stm32.chars() {
-            if ch.is_ascii_alphanumeric() {
-                base.push(ch);
-                // 通常4文字程度でベース部分は終わる（例：g474, f103, h743）
-                if base.len() >= 4 {
-                    break;
-                }
-            }
-        }
-
-        if !base.is_empty() {
-            return Some(format!("stm32{}", base));
-        }
-    }
-
-    None
-}
-
 pub fn search_target_mcu_name(elf_file_path: &PathBuf) -> Option<String> {
     use tracing::{debug, info};
 
     let project_name = elf_file_path.file_stem()?.to_str()?.to_string();
     let mut project_dir = elf_file_path.parent();
-    let mut return_mcu_id_tmp = String::new();
 
     info!(
         "Searching for target MCU name from ELF: {:?}",
@@ -672,7 +643,7 @@ pub fn search_target_mcu_name(elf_file_path: &PathBuf) -> Option<String> {
         let content = std::fs::read_to_string(&ioc_file_path).ok()?;
         for line in content.lines() {
             if line.starts_with("ProjectManager.DeviceId=") {
-                return_mcu_id_tmp = line["ProjectManager.DeviceId=".len()..].to_string();
+                let return_mcu_id_tmp = line["ProjectManager.DeviceId=".len()..].to_string();
                 info!(
                     "Found exact chip name from .ioc file: {}",
                     return_mcu_id_tmp
@@ -717,9 +688,9 @@ pub fn search_target_mcu_name(elf_file_path: &PathBuf) -> Option<String> {
                     if line.contains("_FLASH.ld") {
                         if let Some(start) = line.rfind('/') {
                             if let Some(end) = line[start + 1..].find("_FLASH.ld") {
-                                return_mcu_id_tmp = line[start + 1..start + 1 + end].to_string();
-                                info!("Found chip name from rules.ninja: {}", return_mcu_id_tmp);
-                                return Some(return_mcu_id_tmp);
+                                let mcu_id = line[start + 1..start + 1 + end].to_string();
+                                info!("Found chip name from rules.ninja: {}", mcu_id);
+                                return Some(mcu_id);
                             }
                         }
                     }

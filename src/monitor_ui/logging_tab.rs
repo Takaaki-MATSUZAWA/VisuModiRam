@@ -1,10 +1,9 @@
 use eframe::egui::{self, Color32, RichText};
-use egui_extras::{Column, TableBuilder};
 use egui_plot::{Line, Plot, PlotPoints};
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
 
-use crate::debugging_tools::{ProbeInterface, VariableInfo};
+use crate::debugging_tools::ProbeInterface;
 
 fn default_display_count() -> usize {
     100
@@ -77,9 +76,6 @@ pub struct LoggingTab {
     #[cfg_attr(feature = "serde", serde(skip))]
     samples_per_second: f64,
 
-    #[cfg_attr(feature = "serde", serde(skip))]
-    last_sample_time: Option<Instant>,
-
     // エラー情報
     #[cfg_attr(feature = "serde", serde(skip))]
     last_error: Option<String>,
@@ -129,13 +125,6 @@ impl eframe::App for LoggingTab {
 }
 
 impl LoggingTab {
-    pub fn new(probe_if: ProbeInterface) -> Self {
-        Self {
-            probe_if,
-            ..Default::default()
-        }
-    }
-
     pub fn set_probe(&mut self, probe_if: ProbeInterface) -> Result<(), String> {
         self.probe_if = probe_if;
         Ok(())
@@ -173,7 +162,7 @@ impl LoggingTab {
             ui.add(
                 egui::DragValue::new(&mut self.settings.sample_rate_ms)
                     .suffix(" ms")
-                    .clamp_range(1..=1000)
+                    .range(1..=1000)
                     .speed(1.0),
             );
         });
@@ -183,7 +172,7 @@ impl LoggingTab {
             ui.add(
                 egui::DragValue::new(&mut self.settings.buffer_size_mb)
                     .suffix(" MB")
-                    .clamp_range(10..=1000)
+                    .range(10..=1000)
                     .speed(10.0),
             );
         });
@@ -193,7 +182,7 @@ impl LoggingTab {
             ui.add(
                 egui::DragValue::new(&mut self.settings.auto_save_interval_s)
                     .suffix(" sec")
-                    .clamp_range(5..=300)
+                    .range(5..=300)
                     .speed(5.0),
             );
         });
@@ -203,7 +192,7 @@ impl LoggingTab {
             ui.add(
                 egui::DragValue::new(&mut self.settings.max_log_duration_s)
                     .suffix(" sec (0=∞)")
-                    .clamp_range(0..=3600)
+                    .range(0..=3600)
                     .speed(10.0),
             );
         });

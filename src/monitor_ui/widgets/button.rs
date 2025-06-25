@@ -98,7 +98,7 @@ impl super::WidgetApp for PushButton {
                                     ui.add(egui::DragValue::new(&mut btn.send_value).speed(1.0));
                                 });
                                 row.col(|ui| {
-                                    egui::ComboBox::from_id_source(btn.id)
+                                    egui::ComboBox::from_id_salt(btn.id)
                                         .selected_text(btn.symbol_name.clone())
                                         .show_ui(ui, |ui| {
                                             let mut index = 0;

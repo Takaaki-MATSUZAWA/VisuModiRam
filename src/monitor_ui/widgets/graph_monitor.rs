@@ -30,7 +30,7 @@ impl super::WidgetApp for GraphMonitor {
             let mut plot = Plot::new("plot_demo")
                 .legend(Legend::default().position(Corner::LeftTop))
                 //.view_aspect(1.0)
-                .y_axis_width(4);
+                .y_axis_min_width(4.0);
 
             let mut reset_flag = false;
             ui.horizontal(|ui| {
