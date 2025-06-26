@@ -129,11 +129,7 @@ impl super::WidgetApp for Gauges {
                             ui.add(egui::DragValue::new(&mut max_tmp));
                             ui.separator();
                             ui.label("size:");
-                            ui.add(
-                                egui::DragValue::new(&mut size_tmp)
-                                    .range(50..=500)
-                                    .speed(1),
-                            );
+                            ui.add(egui::DragValue::new(&mut size_tmp).range(50..=500).speed(1));
 
                             if min_tmp < max_tmp {
                                 sldr.min = min_tmp;

@@ -289,14 +289,6 @@ impl SettingTab {
                         self.symbol_search.variable_list = Vec::new();
                         debug!("ELF scanner launched successfully");
 
-                        // チップ名の自動推測
-                        if let Some(guessed_chip) = elf_parser.guess_chip_name() {
-                            info!("Auto-detected chip: {}", guessed_chip);
-                            self.symbol_search.target_mcu.check_id(&guessed_chip);
-                        } else {
-                            debug!("Could not auto-detect chip from ELF project structure");
-                        }
-
                         self.symbol_search.elf_parser = Some(elf_parser);
                         if let Some(elf_parser) = &mut self.symbol_search.elf_parser {
                             elf_parser.scan_variables_none_blocking_start();
@@ -313,6 +305,13 @@ impl SettingTab {
                             .project_name
                             .trim_end_matches(".elf")
                             .to_string();
+
+                        info!(
+                            "ELF file loaded successfully :probe_id={} project_name={} mcu_id={}",
+                            self.probe_setting.probes.len(),
+                            self.symbol_search.project_name,
+                            self.symbol_search.target_mcu.id
+                        );
                     } else {
                         error!("Failed to load ELF file: {}", elf_path);
                     }
