@@ -40,17 +40,51 @@ struct TargetMCUInfo {
     rom: MemInfo,
     ram: MemInfo,
     candidate_list: Vec<String>,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    last_processed_id: String,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    registry: Option<Registry>,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    exact_match_not_found: bool,
 }
 
 use probe_rs::config::{MemoryRegion, Registry};
 
 impl TargetMCUInfo {
+
     pub fn check_id(&mut self, id: &str) {
-        let registry = Registry::from_builtin_families();
+        // IDが変更されていない場合は処理をスキップ
+        if self.last_processed_id == id {
+            return;
+        }
+        info!("check_id start");
+        
+        // last_processed_idを更新する前に、前回の状態をクリア
+        self.candidate_list.clear();
+        self.last_processed_id = id.to_string();
+        self.id_not_found = false;
+        self.exact_match_not_found = false;
+        
+        // 空文字列の場合は何もしない
+        if id.is_empty() {
+            return;
+        }
+        
+        // 最小文字数チェック（パフォーマンス向上）
+        if id.len() < 6 {
+            return;
+        }
+        
+        // Registryを先に取得
+        if self.registry.is_none() {
+            self.registry = Some(Registry::from_builtin_families());
+        }
+        let registry = self.registry.as_ref().unwrap();
 
         if let Ok(target) = registry.get_target_by_name(id) {
             self.id = target.name.clone();
             self.id_not_found = false;
+            self.exact_match_not_found = false;
             if let Some((ram_size, nvm_size)) = Self::get_memory_sizes(&target) {
                 self.rom.size = nvm_size as f64;
                 self.ram.size = ram_size as f64;
@@ -58,15 +92,22 @@ impl TargetMCUInfo {
                 self.ram.calc_percent();
             }
         } else {
-            self.candidate_list.clear();
+            // 完全一致が見つからない場合
+            self.exact_match_not_found = true;
 
-            // idを検索し、結果が空の場合は後ろから1文字ずつ削って再検索
+            // idを検索し、結果が空の場合は後ろから1文字ずつ削って再検索（最大3回まで）
             let mut search_id = id.to_string();
-            while !search_id.is_empty() {
+            let mut search_attempts = 0;
+            let max_attempts = 3;
+            
+            while self.candidate_list.is_empty() && search_attempts < max_attempts {
                 let chips = registry.search_chips(&search_id);
                 if !chips.is_empty() {
+                    let mut unique_chips: std::collections::HashSet<String> = std::collections::HashSet::new();
                     self.candidate_list = chips
                         .into_iter()
+                        .filter(|chip| unique_chips.insert(chip.clone()))
+                        .take(20) // 最大20個の候補に制限
                         .map(|chip| {
                             if let Ok(target) = registry.get_target_by_name(&chip) {
                                 let (ram, rom) = Self::get_memory_sizes(&target).unwrap_or((0, 0));
@@ -79,10 +120,18 @@ impl TargetMCUInfo {
                     break;
                 }
                 search_id.pop();
+                search_attempts += 1;
+                
+                // 文字列が短すぎる場合は終了
+                if search_id.len() < 5 {
+                    break;
+                }
             }
-
-            // 候補の有無でid_not_foundを設定
-            self.id_not_found = self.candidate_list.is_empty();
+            
+            // 候補も見つからない場合
+            if self.candidate_list.is_empty() {
+                self.id_not_found = true;
+            }
         }
     }
 
@@ -431,6 +480,7 @@ impl SettingTab {
             if ui
                 .text_edit_singleline(&mut self.symbol_search.target_mcu.id)
                 .on_hover_ui(|ui| {
+                    info!("on_hover_ui start");
                     if !self.symbol_search.target_mcu.candidate_list.is_empty() {
                         ui.label(RichText::new("Candidate Chips:").strong());
                         ui.separator();
@@ -475,6 +525,15 @@ impl SettingTab {
                                     .small()
                                     .color(Color32::GRAY),
                             );
+                        } else if self.symbol_search.target_mcu.exact_match_not_found {
+                            ui.label(
+                                RichText::new("⚠️ Exact chip name not found").color(Color32::YELLOW),
+                            );
+                            ui.label(
+                                RichText::new("Similar chips are shown above")
+                                    .small()
+                                    .color(Color32::GRAY),
+                            );
                         } else {
                             ui.label(RichText::new("✅ Valid chip name").color(Color32::GREEN));
                         }
@@ -502,6 +561,8 @@ impl SettingTab {
                 ui.label(RichText::new("Please input Target MCU name").color(Color32::RED));
             } else if self.symbol_search.target_mcu.id_not_found {
                 ui.label(RichText::new("Target MCU not found").color(Color32::RED));
+            } else if self.symbol_search.target_mcu.exact_match_not_found {
+                ui.label(RichText::new("Exact chip name not found").color(Color32::YELLOW));
             }
         });
         ui.label("Memory usage");

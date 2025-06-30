@@ -25,8 +25,13 @@ fn main() -> Result<(), eframe::Error> {
             ),
         ..Default::default()
     };
+    let version = env!("CARGO_PKG_VERSION");
+    let app_title = format!("VisuModiRam v{}", version);
+
+    tracing::info!("version: {}", version);
+    
     eframe::run_native(
-        "VisuModiRam",
+        &app_title,
         options,
         Box::new(|cc| Ok(Box::new(VisuModiRam::new(cc)))),
     )
